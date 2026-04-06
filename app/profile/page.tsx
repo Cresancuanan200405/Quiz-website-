@@ -10,6 +10,8 @@ import ProfilePhotoModal from "@/components/ProfilePhotoModal";
 import { currentUser, triviaFacts } from "@/lib/mockData";
 import { useNotificationStore } from "@/lib/notificationStore";
 import { useProfilePhotoStore } from "@/lib/profilePhotoStore";
+import { MAX_PROFILE_TAGS, useProfileStore } from "@/lib/profileStore";
+import { persistProfileToSupabase } from "@/lib/supabase/profilePersistence";
 import type { ProfileTab } from "@/lib/types";
 import { cx } from "@/lib/utils";
 
@@ -54,24 +56,18 @@ const profileTagLibrary = {
   ],
 } as const;
 
-const MAX_PROFILE_TAGS = 5;
-
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<ProfileTab>("stats");
   const [isEditing, setIsEditing] = useState(false);
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
-  const [profileData, setProfileData] = useState({
-    displayName: currentUser.username,
-    handle: currentUser.handle,
-    tags: currentUser.badges.slice(0, MAX_PROFILE_TAGS),
-  });
+  const { displayName, handle, tags, tier, setProfile } = useProfileStore();
   const { pushNotification } = useNotificationStore();
   const { photo } = useProfilePhotoStore();
   const [editData, setEditData] = useState({
-    displayName: profileData.displayName,
-    handle: profileData.handle,
+    displayName,
+    handle,
   });
-  const [selectedTags, setSelectedTags] = useState<string[]>(profileData.tags);
+  const [selectedTags, setSelectedTags] = useState<string[]>(tags);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const savedFacts = useMemo(
@@ -107,16 +103,29 @@ export default function ProfilePage() {
     return !newErrors.displayName;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validateDisplayName(editData.displayName) || !validateUsername(editData.handle)) {
       return;
     }
 
-    setProfileData({
+    const nextProfile = {
       displayName: editData.displayName.trim(),
       handle: editData.handle.trim(),
       tags: selectedTags,
+    };
+
+    setProfile(nextProfile);
+
+    await persistProfileToSupabase({
+      profile: {
+        displayName: nextProfile.displayName,
+        handle: nextProfile.handle,
+        tier,
+        tags: nextProfile.tags,
+      },
+      photo,
     });
+
     setIsEditing(false);
     pushNotification("Profile updated successfully!", "success");
   };
@@ -124,19 +133,19 @@ export default function ProfilePage() {
   const handleCancel = () => {
     setIsEditing(false);
     setEditData({
-      displayName: profileData.displayName,
-      handle: profileData.handle,
+      displayName,
+      handle,
     });
-    setSelectedTags(profileData.tags);
+    setSelectedTags(tags);
     setErrors({});
   };
 
   const openEditMode = () => {
     setEditData({
-      displayName: profileData.displayName,
-      handle: profileData.handle,
+      displayName,
+      handle,
     });
-    setSelectedTags(profileData.tags);
+    setSelectedTags(tags);
     setErrors({});
     setIsEditing(true);
   };
@@ -154,6 +163,8 @@ export default function ProfilePage() {
     setSelectedTags((prev) => [...prev, tag]);
   };
 
+  const visibleTags = isEditing ? selectedTags : tags;
+
   return (
     <div className="min-h-screen overflow-x-hidden pb-20 text-[var(--text-primary)] md:pb-0">
       <Sidebar />
@@ -168,15 +179,15 @@ export default function ProfilePage() {
         <div className="mx-auto w-full max-w-6xl space-y-5 overflow-x-hidden">
         <section className="glass overflow-hidden rounded-card border border-violet-400/15 p-0">
           <div className="relative px-6 pb-5 pt-6 sm:px-7">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-violet-500/18 via-fuchsia-500/10 to-cyan-500/10" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-r from-violet-500/18 via-fuchsia-500/12 to-cyan-500/12" />
 
-            <div className="relative z-10 flex w-full flex-wrap items-start justify-between gap-6">
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4">
+            <div className="relative z-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_290px] lg:items-start">
+            <div className="flex min-w-0 items-start gap-4 sm:gap-5">
               {/* Avatar Section */}
               <div className="relative">
                 <ProfilePhoto
                   photo={photo}
-                  fallbackText={isEditing ? editData.displayName : profileData.displayName}
+                  fallbackText={isEditing ? editData.displayName : displayName}
                   className="h-20 w-20 border-2 border-violet-400/70"
                   textClassName="text-2xl"
                   neon
@@ -243,14 +254,14 @@ export default function ProfilePage() {
                   </div>
                 ) : (
                   <>
-                    <h1 className="font-sora text-3xl font-bold tracking-tight text-[var(--text-primary)]">{profileData.displayName}</h1>
-                    <p className="text-sm text-[var(--text-secondary)]">{profileData.handle} • {currentUser.joinDate}</p>
+                    <h1 className="font-sora text-3xl font-bold tracking-tight text-[var(--text-primary)]">{displayName}</h1>
+                    <p className="text-sm text-[var(--text-secondary)]">{handle} • {currentUser.joinDate}</p>
                   </>
                 )}
 
                 {/* Selected Tags */}
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {selectedTags.map((tag) => (
+                  {visibleTags.map((tag) => (
                     <span
                       key={tag}
                       className={cx(
@@ -267,13 +278,14 @@ export default function ProfilePage() {
             </div>
 
             {/* Points Section & Action Button */}
-            <div className="flex w-full flex-col items-end gap-3 sm:w-auto">
-              <div className="rounded-card border border-violet-400/30 bg-gradient-to-br from-violet-500/16 to-violet-700/8 px-5 py-3 text-right">
+            <div className="grid gap-3 lg:justify-items-end">
+              <div className="w-full rounded-card border border-violet-400/30 bg-gradient-to-br from-violet-500/16 to-violet-700/8 px-5 py-3 text-left lg:text-right">
                 <p className="text-xs uppercase tracking-[0.2em] text-violet-700 dark:text-violet-200">Total Points</p>
-                <p className="inline-flex items-center gap-2 font-sora text-2xl font-bold text-violet-700 dark:text-violet-100">
+                <p className="mt-1 inline-flex items-center gap-2 font-sora text-2xl font-bold text-violet-700 dark:text-violet-100">
                   <Star className="h-5 w-5" />
                   {currentUser.points}
                 </p>
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">Tier: {tier}</p>
               </div>
 
               {/* Edit/Save/Cancel Buttons */}
@@ -281,18 +293,18 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={openEditMode}
-                  className="focus-ring flex items-center gap-2 rounded-lg border border-violet-400/50 bg-violet-500/15 px-4 py-2.5 text-sm font-medium text-violet-700 dark:text-violet-300 hover:bg-violet-500/25 dark:hover:bg-violet-500/20 transition-colors duration-150"
+                  className="focus-ring flex w-full items-center justify-center gap-2 rounded-lg border border-violet-400/50 bg-violet-500/15 px-4 py-2.5 text-sm font-medium text-violet-700 transition-colors duration-150 hover:bg-violet-500/25 dark:text-violet-300 dark:hover:bg-violet-500/20 lg:w-auto"
                 >
                   <PenSquare className="h-4 w-4" />
                   Edit Profile
                 </button>
               ) : (
-                <div className="flex gap-2">
+                <div className="flex w-full gap-2 lg:w-auto">
                   <button
                     type="button"
                     onClick={handleSave}
                     disabled={Object.keys(errors).length > 0}
-                    className="focus-ring flex items-center gap-2 rounded-lg border border-green-500/50 bg-green-500/15 px-4 py-2.5 text-sm font-medium text-green-700 dark:text-green-300 hover:bg-green-500/25 dark:hover:bg-green-500/20 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="focus-ring flex flex-1 items-center justify-center gap-2 rounded-lg border border-green-500/50 bg-green-500/15 px-4 py-2.5 text-sm font-medium text-green-700 transition-colors duration-150 hover:bg-green-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-green-300 dark:hover:bg-green-500/20 lg:flex-none"
                   >
                     <Check className="h-4 w-4" />
                     Save Changes
@@ -300,7 +312,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={handleCancel}
-                    className="focus-ring flex items-center gap-2 rounded-lg border border-red-400/50 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-700 dark:text-red-300 hover:bg-red-500/15 dark:hover:bg-red-500/10 transition-colors duration-150"
+                    className="focus-ring flex flex-1 items-center justify-center gap-2 rounded-lg border border-red-400/50 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-700 transition-colors duration-150 hover:bg-red-500/15 dark:text-red-300 dark:hover:bg-red-500/10 lg:flex-none"
                   >
                     <X className="h-4 w-4" />
                     Cancel
@@ -311,7 +323,8 @@ export default function ProfilePage() {
           </div>
 
           {/* Tabs */}
-          <div className="relative z-10 mt-4 inline-flex rounded-full border border-white/10 bg-white/5 p-1">
+          <div className="relative z-10 mt-6 border-t border-black/10 pt-4 dark:border-white/10">
+            <div className="inline-flex rounded-full border border-white/10 bg-white/5 p-1">
             {tabs.map((tab) => (
               <button
                 key={tab}
@@ -328,6 +341,7 @@ export default function ProfilePage() {
                 {tab}
               </button>
             ))}
+            </div>
           </div>
           </div>
         </section>
@@ -444,7 +458,16 @@ export default function ProfilePage() {
           <ProfilePhotoModal
             onClose={() => setIsPhotoModalOpen(false)}
             fallbackText={editData.displayName}
-            onSaved={() => {
+            onSaved={async () => {
+              await persistProfileToSupabase({
+                profile: {
+                  displayName,
+                  handle,
+                  tier,
+                  tags,
+                },
+                photo: useProfilePhotoStore.getState().photo,
+              });
               pushNotification("Profile photo updated successfully!", "success");
             }}
           />

@@ -28,7 +28,7 @@ const iconMap = {
 interface CategoryCardProps {
   iconName: IconName;
   name: string;
-  questionCount: number;
+  description?: string;
   difficulty: string;
   color: string;
   active?: boolean;
@@ -36,10 +36,22 @@ interface CategoryCardProps {
   hideDifficulty?: boolean;
 }
 
+const categoryDescriptionMap: Record<string, string> = {
+  Science: "Experiments, discoveries, and wild science facts.",
+  History: "Civilizations, wars, and moments that changed the world.",
+  Tech: "Code, gadgets, and digital-era breakthroughs.",
+  Nature: "Wildlife, ecosystems, and the planet's wonders.",
+  Arts: "Music, films, literature, and visual masterpieces.",
+  Anime: "Iconic characters, studios, and anime universes.",
+  Food: "Cuisine, ingredients, and global food culture.",
+  Animals: "Species, behavior, and fascinating creature trivia.",
+  Business: "Markets, strategy, and entrepreneurial insights.",
+};
+
 export default function CategoryCard({
   iconName,
   name,
-  questionCount,
+  description,
   difficulty,
   color,
   active,
@@ -47,6 +59,7 @@ export default function CategoryCard({
   hideDifficulty,
 }: CategoryCardProps) {
   const icon = iconMap[iconName] ?? faFlask;
+  const blurb = description ?? categoryDescriptionMap[name] ?? "Challenge yourself with a fresh set of curated questions.";
 
   return (
     <motion.button
@@ -72,7 +85,7 @@ export default function CategoryCard({
         )}
       </div>
       <h3 className="mb-1 font-sora text-lg font-semibold text-[var(--text-primary)]">{name}</h3>
-      <p className="text-sm text-[var(--text-secondary)]">{questionCount} questions</p>
+      <p className="text-sm text-[var(--text-secondary)]">{blurb}</p>
     </motion.button>
   );
 }

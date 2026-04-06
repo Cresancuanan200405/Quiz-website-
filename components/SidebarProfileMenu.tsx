@@ -5,9 +5,10 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUserCircle, faCog, faTrophy, faSignOutAlt } from "@fortawesome/free-solid-svg-icons";
-import { currentUser } from "@/lib/mockData";
 import ProfilePhoto from "@/components/ProfilePhoto";
 import { useProfilePhotoStore } from "@/lib/profilePhotoStore";
+import { useProfileStore } from "@/lib/profileStore";
+import { useSettingsStore } from "@/lib/settingsStore";
 import { cx } from "@/lib/utils";
 
 interface SidebarProfileMenuProps {
@@ -25,6 +26,8 @@ export default function SidebarProfileMenu({ isCollapsed, onSignOut }: SidebarPr
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const { photo } = useProfilePhotoStore();
+  const { displayName, tier } = useProfileStore();
+  const { showOnlineStatus } = useSettingsStore();
 
   useEffect(() => {
     const onClickOutside = (event: MouseEvent) => {
@@ -54,22 +57,27 @@ export default function SidebarProfileMenu({ isCollapsed, onSignOut }: SidebarPr
         onClick={() => setIsOpen((prev) => !prev)}
         aria-label="Open profile menu"
         className={cx(
-          "focus-ring group w-full rounded-xl border transition-all duration-150",
+          "focus-ring group relative border transition-all duration-150",
           "dark:border-white/8 border-gray-100 dark:bg-white/5 bg-gray-50 hover:border-violet-400/40",
-          isCollapsed ? "flex h-14 items-center justify-center" : "flex items-center gap-3 px-2 py-2"
+          isCollapsed ? "mx-auto flex h-16 w-16 items-center justify-center rounded-full p-0" : "flex w-full items-center gap-3 rounded-xl px-2 py-2"
         )}
       >
-        <ProfilePhoto
-          photo={photo}
-          fallbackText={currentUser.username}
-          className="h-9 w-9 flex-shrink-0 border-violet-400/50"
-          textClassName="text-xs"
-        />
+        <div className="relative flex items-center justify-center">
+          <ProfilePhoto
+            photo={photo}
+            fallbackText={displayName}
+            className={cx("flex-shrink-0 border-violet-400/50", isCollapsed ? "h-12 w-12" : "h-9 w-9")}
+            textClassName={isCollapsed ? "text-xs" : "text-xs"}
+          />
+          {isCollapsed && showOnlineStatus ? (
+            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[var(--bg-card)] bg-emerald-400 shadow-[0_0_10px_rgba(74,222,128,0.7)]" />
+          ) : null}
+        </div>
 
         {!isCollapsed ? (
           <div className="min-w-0 flex-1 text-left">
-            <p className="truncate font-sora text-sm font-semibold text-[var(--text-primary)]">{currentUser.username}</p>
-            <p className="text-xs text-[var(--text-secondary)]">{currentUser.tier}</p>
+            <p className="truncate font-sora text-sm font-semibold text-[var(--text-primary)]">{displayName}</p>
+            <p className="text-xs text-[var(--text-secondary)]">{tier}</p>
           </div>
         ) : null}
       </button>
@@ -87,8 +95,8 @@ export default function SidebarProfileMenu({ isCollapsed, onSignOut }: SidebarPr
             )}
           >
             <div className="border-b dark:border-white/10 border-gray-200 px-4 py-3">
-              <p className="font-sora text-sm font-semibold text-[var(--text-primary)]">{currentUser.username}</p>
-              <p className="text-xs text-[var(--text-secondary)]">{currentUser.tier}</p>
+              <p className="font-sora text-sm font-semibold text-[var(--text-primary)]">{displayName}</p>
+              <p className="text-xs text-[var(--text-secondary)]">{tier}</p>
             </div>
 
             <div className="py-1">

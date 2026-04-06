@@ -85,7 +85,7 @@ export default function ProfilePhotoModal({ onClose, fallbackText, onSaved }: Pr
           exit={{ opacity: 0, y: 18, scale: 0.98 }}
           transition={{ duration: 0.22, ease: "easeOut" }}
           onClick={(event) => event.stopPropagation()}
-          className="w-full max-w-xl rounded-card border border-violet-400/40 bg-[var(--bg-card)]/90 p-5 backdrop-blur-md shadow-[0_0_35px_rgba(124,58,237,0.25)]"
+          className="flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-card border border-violet-400/40 bg-[var(--bg-card)]/90 p-5 backdrop-blur-md shadow-[0_0_35px_rgba(124,58,237,0.25)]"
         >
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -112,133 +112,135 @@ export default function ProfilePhotoModal({ onClose, fallbackText, onSaved }: Pr
             />
           </div>
 
-          <div className="mb-4 inline-flex w-full rounded-full border border-violet-400/35 bg-black/10 p-1 dark:bg-white/5">
-            <button
-              type="button"
-              onClick={() => setActiveTab("upload")}
-              className={cx(
-                "focus-ring flex-1 rounded-full px-4 py-2 text-sm font-medium transition-all",
-                activeTab === "upload"
-                  ? "bg-violet-500/30 text-violet-100 shadow-[0_0_12px_rgba(124,58,237,0.35)]"
-                  : "text-[var(--text-secondary)]"
-              )}
-            >
-              Local Upload
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("avatar")}
-              className={cx(
-                "focus-ring flex-1 rounded-full px-4 py-2 text-sm font-medium transition-all",
-                activeTab === "avatar"
-                  ? "bg-violet-500/30 text-violet-100 shadow-[0_0_12px_rgba(124,58,237,0.35)]"
-                  : "text-[var(--text-secondary)]"
-              )}
-            >
-              Choose Avatar
-            </button>
-          </div>
-
-          {activeTab === "upload" ? (
-            <div
-              onDragOver={(event) => {
-                event.preventDefault();
-                setIsDragging(true);
-              }}
-              onDragLeave={(event) => {
-                event.preventDefault();
-                setIsDragging(false);
-              }}
-              onDrop={handleDrop}
-              className={cx(
-                "rounded-card border-2 border-dashed p-6 text-center transition-all",
-                isDragging
-                  ? "border-violet-400 bg-violet-500/15"
-                  : "border-violet-400/35 bg-black/5 dark:bg-white/5"
-              )}
-            >
-              <UploadCloud className="mx-auto mb-3 h-8 w-8 text-violet-400" />
-              <p className="text-sm font-medium text-[var(--text-primary)]">Drop an image here</p>
-              <p className="text-xs text-[var(--text-secondary)]">PNG, JPG, WEBP up to 10MB</p>
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <div className="mb-4 inline-flex w-full rounded-full border border-violet-400/35 bg-black/10 p-1 dark:bg-white/5">
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="focus-ring mt-4 rounded-button border border-violet-400/40 bg-violet-500/15 px-3 py-2 text-sm text-violet-200 hover:bg-violet-500/25"
+                onClick={() => setActiveTab("upload")}
+                className={cx(
+                  "focus-ring flex-1 rounded-full px-4 py-2 text-sm font-medium transition-all",
+                  activeTab === "upload"
+                    ? "bg-violet-500/30 text-violet-100 shadow-[0_0_12px_rgba(124,58,237,0.35)]"
+                    : "text-[var(--text-secondary)]"
+                )}
               >
-                Browse files
+                Local Upload
               </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) readFile(file);
+              <button
+                type="button"
+                onClick={() => setActiveTab("avatar")}
+                className={cx(
+                  "focus-ring flex-1 rounded-full px-4 py-2 text-sm font-medium transition-all",
+                  activeTab === "avatar"
+                    ? "bg-violet-500/30 text-violet-100 shadow-[0_0_12px_rgba(124,58,237,0.35)]"
+                    : "text-[var(--text-secondary)]"
+                )}
+              >
+                Choose Avatar
+              </button>
+            </div>
+
+            {activeTab === "upload" ? (
+              <div
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setIsDragging(true);
                 }}
-                className="hidden"
-              />
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="max-h-72 overflow-y-auto rounded-card border border-black/10 bg-black/5 p-3 dark:border-white/10 dark:bg-white/5">
-                <div className="grid grid-cols-5 gap-2">
-                  {cartoonAvatarUrls.map((url, index) => {
-                    const active = draft.type === "image" && draft.value === url;
-                    const bgClass = avatarBgClasses[index % avatarBgClasses.length];
-                    return (
-                      <button
-                        key={url}
-                        type="button"
-                        onClick={() => setDraft({ type: "image", value: url })}
-                        className={cx(
-                          "focus-ring cursor-pointer overflow-hidden rounded-full border-2 p-0.5 transition-all",
-                          active
-                            ? "border-violet-400 shadow-[0_0_0_2px_rgba(167,139,250,0.95),0_0_22px_rgba(124,58,237,0.45)]"
-                            : "border-black/10 hover:border-violet-400/55 dark:border-white/15",
-                          bgClass,
-                        )}
-                      >
-                        {/* DiceBear URL avatars are dynamic external images. */}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={url}
-                          alt={`Cartoon avatar ${index + 1}`}
-                          className="h-12 w-12 rounded-full object-cover"
-                        />
-                      </button>
-                    );
-                  })}
+                onDragLeave={(event) => {
+                  event.preventDefault();
+                  setIsDragging(false);
+                }}
+                onDrop={handleDrop}
+                className={cx(
+                  "rounded-card border-2 border-dashed p-6 text-center transition-all",
+                  isDragging
+                    ? "border-violet-400 bg-violet-500/15"
+                    : "border-violet-400/35 bg-black/5 dark:bg-white/5"
+                )}
+              >
+                <UploadCloud className="mx-auto mb-3 h-8 w-8 text-violet-400" />
+                <p className="text-sm font-medium text-[var(--text-primary)]">Drop an image here</p>
+                <p className="text-xs text-[var(--text-secondary)]">PNG, JPG, WEBP up to 10MB</p>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="focus-ring mt-4 rounded-button border border-violet-400/40 bg-violet-500/15 px-3 py-2 text-sm text-violet-200 hover:bg-violet-500/25"
+                >
+                  Browse files
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) readFile(file);
+                  }}
+                  className="hidden"
+                />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="max-h-72 overflow-y-auto rounded-card border border-black/10 bg-black/5 p-3 dark:border-white/10 dark:bg-white/5">
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+                    {cartoonAvatarUrls.map((url, index) => {
+                      const active = draft.type === "image" && draft.value === url;
+                      const bgClass = avatarBgClasses[index % avatarBgClasses.length];
+                      return (
+                        <button
+                          key={url}
+                          type="button"
+                          onClick={() => setDraft({ type: "image", value: url })}
+                          className={cx(
+                            "focus-ring cursor-pointer overflow-hidden rounded-full border-2 p-0.5 transition-all",
+                            active
+                              ? "border-violet-400 shadow-[0_0_0_2px_rgba(167,139,250,0.95),0_0_22px_rgba(124,58,237,0.45)]"
+                              : "border-black/10 hover:border-violet-400/55 dark:border-white/15",
+                            bgClass,
+                          )}
+                        >
+                          {/* DiceBear URL avatars are dynamic external images. */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt={`Cartoon avatar ${index + 1}`}
+                            className="h-10 w-10 rounded-full object-cover sm:h-12 sm:w-12"
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="profile-web-url" className="mb-1.5 block text-xs uppercase tracking-wide text-[var(--text-secondary)]">
+                    Web Image URL
+                  </label>
+                  <div className="relative">
+                    <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-secondary)]" />
+                    <input
+                      id="profile-web-url"
+                      type="url"
+                      value={webUrl}
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        setWebUrl(next);
+                        const trimmed = next.trim();
+                        if (trimmed.length > 0) {
+                          setDraft({ type: "image", value: trimmed });
+                        }
+                      }}
+                      placeholder="https://example.com/avatar.png"
+                      className="focus-ring w-full rounded-card border border-black/10 bg-black/5 py-2.5 pl-9 pr-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/70 hover:border-violet-400/45 dark:border-white/15 dark:bg-white/5"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-[var(--text-secondary)]">Paste a direct image link for instant preview.</p>
                 </div>
               </div>
+            )}
+          </div>
 
-              <div>
-                <label htmlFor="profile-web-url" className="mb-1.5 block text-xs uppercase tracking-wide text-[var(--text-secondary)]">
-                  Web Image URL
-                </label>
-                <div className="relative">
-                  <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-secondary)]" />
-                  <input
-                    id="profile-web-url"
-                    type="url"
-                    value={webUrl}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      setWebUrl(next);
-                      const trimmed = next.trim();
-                      if (trimmed.length > 0) {
-                        setDraft({ type: "image", value: trimmed });
-                      }
-                    }}
-                    placeholder="https://example.com/avatar.png"
-                    className="focus-ring w-full rounded-card border border-black/10 bg-black/5 py-2.5 pl-9 pr-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/70 hover:border-violet-400/45 dark:border-white/15 dark:bg-white/5"
-                  />
-                </div>
-                <p className="mt-1 text-xs text-[var(--text-secondary)]">Paste a direct image link for instant preview.</p>
-              </div>
-            </div>
-          )}
-
-          <div className="mt-5 flex items-center justify-end gap-2">
+          <div className="mt-5 flex shrink-0 items-center justify-end gap-2 border-t border-black/10 pt-4 dark:border-white/10">
             <button
               type="button"
               onClick={onClose}

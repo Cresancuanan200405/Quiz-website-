@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -17,7 +17,10 @@ import {
 } from "lucide-react";
 import { cx } from "@/lib/utils";
 import { useSidebarStore } from "@/lib/sidebarStore";
-import { currentUser } from "@/lib/mockData";
+import { useProfileStore } from "@/lib/profileStore";
+import { useProfilePhotoStore } from "@/lib/profilePhotoStore";
+import { useSettingsStore } from "@/lib/settingsStore";
+import { loadProfileFromSupabase } from "@/lib/supabase/profilePersistence";
 import SidebarProfileMenu from "@/components/SidebarProfileMenu";
 
 const navItems = [
@@ -31,12 +34,43 @@ const navItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { displayName, tier, setProfile } = useProfileStore();
+  const { setPhoto } = useProfilePhotoStore();
+  const { setAllSettings } = useSettingsStore();
+  const hydratedRef = useRef(false);
   const {
     isCollapsed,
     toggleSidebar,
     isMobileOpen,
     setMobileOpen,
   } = useSidebarStore();
+
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+
+    const hydrateProfile = async () => {
+      const persisted = await loadProfileFromSupabase();
+      if (!persisted) return;
+
+      setProfile(persisted.profile);
+      setPhoto(persisted.photo);
+      setAllSettings({
+        publicProfile: persisted.publicProfile,
+        showOnlineStatus: persisted.showOnlineStatus,
+        soundEffects: persisted.soundEffects,
+        music: persisted.music,
+        autoStartNextQuiz: persisted.autoStartNextQuiz,
+        dailyReminder: persisted.dailyReminder,
+        challengeAlerts: persisted.challengeAlerts,
+        emailNotifications: persisted.emailNotifications,
+        defaultLanguage: persisted.defaultLanguage as "English" | "Spanish" | "French" | "Japanese" | undefined,
+        preferredDifficulty: persisted.preferredDifficulty as "Easy" | "Medium" | "Hard" | undefined,
+      });
+    };
+
+    void hydrateProfile();
+  }, [setAllSettings, setPhoto, setProfile]);
 
   useEffect(() => {
     const onShortcut = (event: KeyboardEvent) => {
@@ -209,8 +243,8 @@ export default function Sidebar() {
                   }}
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-left"
                 >
-                  <p className="font-sora text-sm font-semibold text-[var(--text-primary)]">{currentUser.username}</p>
-                  <p className="text-xs text-[var(--text-secondary)]">{currentUser.tier}</p>
+                  <p className="font-sora text-sm font-semibold text-[var(--text-primary)]">{displayName}</p>
+                  <p className="text-xs text-[var(--text-secondary)]">{tier}</p>
                 </button>
               </div>
             </motion.aside>

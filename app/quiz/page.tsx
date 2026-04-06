@@ -199,7 +199,6 @@ export default function QuizPage() {
                       key={category.name}
                       iconName={category.iconName}
                       name={category.name}
-                      questionCount={category.questionCount}
                       difficulty={category.difficulty}
                       color={category.color}
                       active={selectedCategory === category.name}

@@ -2,25 +2,21 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ShieldCheck, Swords, Trophy, Heart, Bookmark } from "lucide-react";
+import { ArrowRight, ShieldCheck, Swords, Trophy } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import CategoryCard from "@/components/CategoryCard";
+import FactCard from "@/components/FactCard";
 import StatCard from "@/components/StatCard";
 import LeaderboardRow from "@/components/LeaderboardRow";
 import CategoryPreviewModal from "@/components/CategoryPreviewModal";
-import { categoryMeta, currentUser, leaderboardUsers, onlinePlayers, triviaFacts } from "@/lib/mockData";
+import { categoryMeta, currentUser, leaderboardUsers, onlinePlayers } from "@/lib/mockData";
 
 export default function Home() {
-  const [factIndex, setFactIndex] = useState(0);
-  const [liked, setLiked] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<(typeof categoryMeta)[0] | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [displayShowAllCategories, setDisplayShowAllCategories] = useState(false);
-
-  const fact = triviaFacts[factIndex % triviaFacts.length];
 
   return (
     <div className="min-h-screen pb-20 dark:bg-[#0A0B14] bg-[#F8F7FF] md:pb-0">
@@ -76,7 +72,6 @@ export default function Home() {
                   key={category.name}
                   iconName={category.iconName}
                   name={category.name}
-                  questionCount={category.questionCount}
                   difficulty={category.difficulty}
                   color={category.color}
                   active={selectedCategory?.name === category.name}
@@ -104,7 +99,6 @@ export default function Home() {
                       key={category.name}
                       iconName={category.iconName}
                       name={category.name}
-                      questionCount={category.questionCount}
                       difficulty={category.difficulty}
                       color={category.color}
                       active={selectedCategory?.name === category.name}
@@ -130,7 +124,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="grid gap-4 lg:grid-cols-2">
+          <section className="grid items-start gap-4 lg:grid-cols-2">
           <div className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-3">
               <StatCard label="Accuracy" value={`${currentUser.accuracy}%`} tone="green" icon={<ShieldCheck className="h-4 w-4" />} />
@@ -177,7 +171,7 @@ export default function Home() {
           </article>
         </section>
 
-          <section className="grid gap-4 lg:grid-cols-2">
+          <section className="grid items-start gap-4 lg:grid-cols-2">
           <article className="glass rounded-card p-4 dark:bg-white/5 bg-white dark:border-white/10 border-gray-100 dark:shadow-none shadow-sm hover:shadow-md">
             <div className="mb-3 flex items-center justify-between">
               <p className="font-sora text-lg font-semibold dark:text-white text-gray-900">Leaderboard Preview</p>
@@ -197,43 +191,7 @@ export default function Home() {
             </div>
           </article>
 
-          <article className="glass rounded-card border-l-4 border-amber-400 p-5 dark:bg-white/5 bg-white dark:border-white/10 border-gray-100 dark:shadow-none shadow-sm hover:shadow-md">
-            <p className="mb-2 text-xs uppercase tracking-[0.2em] text-amber-700 dark:text-amber-200">Fact of the Day</p>
-            <h3 className="mb-2 font-sora text-xl font-semibold dark:text-white text-gray-900">{fact.title}</h3>
-            <p className="mb-4 text-sm dark:text-white/75 text-gray-600">{fact.body}</p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                aria-label="Like fact"
-                onClick={() => setLiked((v) => !v)}
-                className={`focus-ring arcade-btn rounded-full border px-3 py-1.5 text-sm ${
-                  liked ? "border-rose-400 bg-rose-500/20 text-rose-700 dark:text-rose-200" : "dark:border-white/15 border-black/8 dark:bg-white/5 bg-black/4 dark:text-white/80 text-gray-700"
-                }`}
-              >
-                <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
-              </button>
-              <button
-                type="button"
-                aria-label="Save fact"
-                onClick={() => setSaved((v) => !v)}
-                className={`focus-ring arcade-btn rounded-full border px-3 py-1.5 text-sm ${
-                  saved
-                    ? "border-violet-400 bg-violet-500/20 text-violet-700 dark:text-violet-200"
-                    : "dark:border-white/15 border-black/8 dark:bg-white/5 bg-black/4 dark:text-white/80 text-gray-700"
-                }`}
-              >
-                <Bookmark className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
-              </button>
-              <button
-                type="button"
-                aria-label="Next fact"
-                onClick={() => setFactIndex((n) => (n + 1) % triviaFacts.length)}
-                className="focus-ring arcade-btn ml-auto rounded-button border dark:border-white/15 border-black/8 dark:bg-white/5 bg-black/4 px-3 py-1.5 text-sm dark:text-white/80 text-gray-700 hover:border-amber-400"
-              >
-                Next
-              </button>
-            </div>
-          </article>
+          <FactCard dynamic featured />
             </section>
         </div>
       </motion.main>
