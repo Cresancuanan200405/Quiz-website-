@@ -157,7 +157,12 @@ export default function Sidebar() {
           })}
         </nav>
 
-        <div className="mt-auto border-t dark:border-white/5 border-gray-100 p-3">
+        <div
+          className={cx(
+            "mt-auto border-t border-gray-100 dark:border-white/5",
+            isCollapsed ? "flex justify-center p-3" : "px-3 pb-3 pt-4"
+          )}
+        >
           <SidebarProfileMenu
             isCollapsed={isCollapsed}
             onSignOut={() => {

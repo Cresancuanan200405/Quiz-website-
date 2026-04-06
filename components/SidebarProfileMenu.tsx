@@ -51,35 +51,44 @@ export default function SidebarProfileMenu({ isCollapsed, onSignOut }: SidebarPr
     : { initial: { opacity: 0, y: 8, scale: 0.96 }, animate: { opacity: 1, y: 0, scale: 1 }, exit: { opacity: 0, y: 8, scale: 0.96 } };
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className={cx("relative", isCollapsed ? "" : "w-full")}>
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         aria-label="Open profile menu"
         className={cx(
-          "focus-ring group relative border transition-all duration-150",
+          "focus-ring group relative box-border w-full border transition-all duration-150",
           "dark:border-white/8 border-gray-100 dark:bg-white/5 bg-gray-50 hover:border-violet-400/40",
-          isCollapsed ? "mx-auto flex h-16 w-16 items-center justify-center rounded-full p-0" : "flex w-full items-center gap-3 rounded-xl px-2 py-2"
+          isCollapsed ? "flex items-center justify-center rounded-full px-2 py-2" : "flex items-center gap-3 rounded-xl px-3 py-2"
         )}
       >
         <div className="relative flex items-center justify-center">
           <ProfilePhoto
             photo={photo}
             fallbackText={displayName}
-            className={cx("flex-shrink-0 border-violet-400/50", isCollapsed ? "h-12 w-12" : "h-9 w-9")}
+            className={cx("flex-shrink-0 border-violet-400/50", isCollapsed ? "h-10 w-10" : "h-9 w-9")}
             textClassName={isCollapsed ? "text-xs" : "text-xs"}
           />
           {isCollapsed && showOnlineStatus ? (
-            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[var(--bg-card)] bg-emerald-400 shadow-[0_0_10px_rgba(74,222,128,0.7)]" />
+            <span className="absolute bottom-[2px] right-[2px] h-3 w-3 rounded-full border-2 border-[var(--bg-card)] bg-emerald-400 shadow-[0_0_10px_rgba(74,222,128,0.7)]" />
           ) : null}
         </div>
 
-        {!isCollapsed ? (
-          <div className="min-w-0 flex-1 text-left">
-            <p className="truncate font-sora text-sm font-semibold text-[var(--text-primary)]">{displayName}</p>
-            <p className="text-xs text-[var(--text-secondary)]">{tier}</p>
-          </div>
-        ) : null}
+        <AnimatePresence initial={false} mode="wait">
+          {!isCollapsed ? (
+            <motion.div
+              key="profile-text"
+              initial={{ opacity: 0, x: -4 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -4 }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
+              className="min-w-0 flex-1 text-left"
+            >
+              <p className="truncate whitespace-nowrap font-sora text-sm font-semibold text-[var(--text-primary)]">{displayName}</p>
+              <p className="truncate whitespace-nowrap text-xs text-[var(--text-secondary)]">{tier}</p>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </button>
 
       <AnimatePresence>
