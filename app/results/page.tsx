@@ -11,8 +11,11 @@ export default function ResultsPage() {
   const score = Number(params.get("score") ?? 0);
   const total = Number(params.get("total") ?? 10);
   const category = params.get("category") ?? "Mixed";
+  const difficulty = params.get("difficulty") ?? "Easy";
+  const count = Number(params.get("count") ?? total);
   const timeTaken = Number(params.get("timeTaken") ?? 120);
   const targetAccuracy = total ? Math.round((score / total) * 100) : 0;
+  const replayHref = `/quiz?instant=1&category=${encodeURIComponent(category)}&difficulty=${encodeURIComponent(difficulty)}&count=${count}`;
 
   const [animatedAccuracy, setAnimatedAccuracy] = useState(0);
   const [animatedScore, setAnimatedScore] = useState(0);
@@ -78,10 +81,10 @@ export default function ResultsPage() {
         </div>
 
         <div className="flex flex-wrap justify-center gap-2">
-          <Link href="/quiz" className="focus-ring arcade-btn btn-primary rounded-button px-4 py-2 text-sm">
+          <Link href={replayHref} className="focus-ring arcade-btn btn-primary rounded-button px-4 py-2 text-sm">
             Play Again
           </Link>
-          <Link href="/" className="focus-ring arcade-btn rounded-button border border-black/8 px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-violet-400 dark:border-white/20 dark:text-white/80">
+          <Link href="/quiz" className="focus-ring arcade-btn rounded-button border border-black/8 px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-violet-400 dark:border-white/20 dark:text-white/80">
             Try Another Quiz
           </Link>
           <Link href="/leaderboard" className="focus-ring arcade-btn rounded-button bg-black/5 px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-black/10 dark:bg-white/6 dark:text-white/80 dark:hover:bg-white/12">

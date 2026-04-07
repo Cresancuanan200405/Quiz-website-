@@ -70,7 +70,7 @@ export default function SidebarProfileMenu({ isCollapsed, onSignOut }: SidebarPr
             textClassName={isCollapsed ? "text-xs" : "text-xs"}
           />
           {isCollapsed && showOnlineStatus ? (
-            <span className="absolute bottom-[2px] right-[2px] h-3 w-3 rounded-full border-2 border-[var(--bg-card)] bg-emerald-400 shadow-[0_0_10px_rgba(74,222,128,0.7)]" />
+            <span className="absolute bottom-0 right-0 h-3 w-3 translate-x-1/4 translate-y-1/4 rounded-full border-2 border-[var(--bg-card)] bg-emerald-400 shadow-[0_0_0_2px_rgba(16,185,129,0.22),0_0_10px_rgba(74,222,128,0.68)]" />
           ) : null}
         </div>
 

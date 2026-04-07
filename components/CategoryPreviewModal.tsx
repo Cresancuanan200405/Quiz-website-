@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, X } from "lucide-react";
+import { Check, ChevronDown, Lock, X } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import ProgressionInfoDialog from "@/components/ProgressionInfoDialog";
 import {
   faFlask,
   faClapperboard,
@@ -18,6 +19,9 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { categoryMeta, leaderboardUsers } from "@/lib/mockData";
 import type { Difficulty } from "@/lib/types";
+import { useSettingsStore } from "@/lib/settingsStore";
+import { usePlayerStatsStore } from "@/lib/playerStatsStore";
+import { getPassedQuestionCounts, getUnlockedDifficultiesForCategory, questionCountOptions } from "@/lib/quizProgression";
 
 const iconMap = {
   flask: faFlask,
@@ -42,43 +46,33 @@ const categoryImages: Record<string, string> = {
   Business: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&h=300&fit=crop&q=80",
 };
 
-const questionCountOptions = [5, 10, 15, 20, 30] as const;
-const categoryDescriptions: Record<string, { description: string; avgTime: string }> = {
+const categoryDescriptions: Record<string, { description: string }> = {
   Science: {
     description: "Explore fundamental scientific concepts, from physics and chemistry to biology and earth science. Test your knowledge across multiple scientific disciplines.",
-    avgTime: "12-15 min",
   },
   History: {
     description: "Journey through time with questions on world events, historical figures, and pivotal moments. Discover fascinating facts from ancient to modern times.",
-    avgTime: "10-12 min",
   },
   Tech: {
     description: "Challenge yourself with technology questions spanning programming, hardware, and innovation. Perfect for tech enthusiasts and professionals.",
-    avgTime: "13-16 min",
   },
   Nature: {
     description: "Dive into the natural world with questions about ecosystems, wildlife, and environmental science. Connect with the wonders of planet Earth.",
-    avgTime: "11-14 min",
   },
   Arts: {
     description: "Explore creativity and culture with questions on visual arts, music, literature, and performing arts. Celebrate human artistic expression.",
-    avgTime: "12-15 min",
   },
   Anime: {
     description: "Test your anime knowledge with questions about popular series, characters, and studio classics. Perfect for anime fans and enthusiasts.",
-    avgTime: "10-13 min",
   },
   Food: {
     description: "Explore culinary traditions, cooking techniques, and food culture from around the world. A tasty challenge for food lovers.",
-    avgTime: "9-11 min",
   },
   Animals: {
     description: "Learn about animal behavior, species facts, and wildlife conservation. Perfect for nature and animal enthusiasts.",
-    avgTime: "10-12 min",
   },
   Business: {
     description: "Master business concepts, economics, and entrepreneurship. Challenge yourself with corporate knowledge and financial literacy.",
-    avgTime: "12-14 min",
   },
 };
 
@@ -112,10 +106,21 @@ interface CategoryPreviewModalInnerProps {
 function CategoryPreviewModalInner({ isOpen, category, onClose, onCategoryChange }: CategoryPreviewModalInnerProps) {
   const router = useRouter();
   const controlsRef = useRef<HTMLDivElement>(null);
+  const showDifficultyProgressionDialog = useSettingsStore((state) => state.showDifficultyProgressionDialog);
+  const setShowDifficultyProgressionDialog = useSettingsStore((state) => state.setShowDifficultyProgressionDialog);
+  const { quizHistory } = usePlayerStatsStore();
   const [starting, setStarting] = useState(false);
-  const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>("Medium");
+  const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>("Easy");
   const [questionCount, setQuestionCount] = useState(10);
   const [openMenu, setOpenMenu] = useState<"difficulty" | "questions" | null>(null);
+  const [showProgressionDialog, setShowProgressionDialog] = useState(false);
+
+  const unlockedByCategory = useMemo(() => getUnlockedDifficultiesForCategory(quizHistory, category.name), [category.name, quizHistory]);
+  const activeDifficulty: Difficulty = unlockedByCategory[selectedDifficulty] ? selectedDifficulty : "Easy";
+  const passedQuestionCounts = useMemo(() => getPassedQuestionCounts(quizHistory, category.name, activeDifficulty), [activeDifficulty, category.name, quizHistory]);
+  const easyPassedCount = useMemo(() => getPassedQuestionCounts(quizHistory, category.name, "Easy").size, [category.name, quizHistory]);
+  const mediumPassedCount = useMemo(() => getPassedQuestionCounts(quizHistory, category.name, "Medium").size, [category.name, quizHistory]);
+  const hardPassedCount = useMemo(() => getPassedQuestionCounts(quizHistory, category.name, "Hard").size, [category.name, quizHistory]);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -131,7 +136,6 @@ function CategoryPreviewModalInner({ isOpen, category, onClose, onCategoryChange
   const icon = iconMap[category.iconName] ?? faFlask;
   const categoryInfo = categoryDescriptions[category.name] || {
     description: "Challenge yourself with engaging questions.",
-    avgTime: "12-15 min",
   };
 
   // Get recommended categories (2 others)
@@ -157,17 +161,38 @@ function CategoryPreviewModalInner({ isOpen, category, onClose, onCategoryChange
 
   const categoryLeaderboard = getCategoryLeaderboard();
 
-  const handleStart = () => {
+  const startFromModal = () => {
     setStarting(true);
     setTimeout(() => {
       onClose();
-      router.push("/quiz");
+      router.push(`/quiz?instant=1&category=${encodeURIComponent(category.name)}&difficulty=${encodeURIComponent(activeDifficulty)}&count=${questionCount}`);
     }, 400);
   };
 
+  const handleStart = () => {
+    if (!unlockedByCategory[activeDifficulty]) return;
+
+    if (showDifficultyProgressionDialog) {
+      setShowProgressionDialog(true);
+      return;
+    }
+
+    startFromModal();
+  };
+
+  const handleConfirmProgressionDialog = (dontShowAgain: boolean) => {
+    if (dontShowAgain) {
+      setShowDifficultyProgressionDialog(false);
+    }
+
+    setShowProgressionDialog(false);
+    startFromModal();
+  };
+
   return (
-    <AnimatePresence>
-      {isOpen && (
+    <>
+      <AnimatePresence>
+        {isOpen && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -226,18 +251,14 @@ function CategoryPreviewModalInner({ isOpen, category, onClose, onCategoryChange
               </div>
 
               {/* Details Row */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-card border border-black/8 dark:border-white/10 bg-white/40 dark:bg-white/5 p-3 text-center">
                   <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wide mb-1">Questions</p>
                   <p className="font-sora font-bold text-[var(--text-primary)]">{questionCount}</p>
                 </div>
                 <div className="rounded-card border border-black/8 dark:border-white/10 bg-white/40 dark:bg-white/5 p-3 text-center">
-                  <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wide mb-1">Time</p>
-                  <p className="font-sora font-bold text-[var(--text-primary)] text-sm">{categoryInfo.avgTime}</p>
-                </div>
-                <div className="rounded-card border border-black/8 dark:border-white/10 bg-white/40 dark:bg-white/5 p-3 text-center">
                   <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wide mb-1">Level</p>
-                  <p className="font-sora font-bold text-[var(--text-primary)]">{selectedDifficulty}</p>
+                  <p className="font-sora font-bold text-[var(--text-primary)]">{activeDifficulty}</p>
                 </div>
               </div>
 
@@ -254,7 +275,7 @@ function CategoryPreviewModalInner({ isOpen, category, onClose, onCategoryChange
                       onClick={() => setOpenMenu((prev) => (prev === "difficulty" ? null : "difficulty"))}
                       className="focus-ring flex w-full items-center justify-between rounded-card border border-violet-400/35 bg-white/70 px-3 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition-all duration-150 hover:border-violet-400 dark:bg-white/5"
                     >
-                      <span>{selectedDifficulty}</span>
+                      <span>{activeDifficulty}</span>
                       <ChevronDown className={`h-4 w-4 text-violet-400 transition-transform ${openMenu === "difficulty" ? "rotate-180" : ""}`} />
                     </button>
                     <AnimatePresence>
@@ -266,23 +287,35 @@ function CategoryPreviewModalInner({ isOpen, category, onClose, onCategoryChange
                           className="absolute z-20 mt-2 w-full overflow-hidden rounded-card border border-violet-400/35 bg-[var(--bg-secondary)]/95 p-1 backdrop-blur-md shadow-[0_14px_28px_rgba(124,58,237,0.25)]"
                         >
                           {(["Easy", "Medium", "Hard"] as const).map((difficulty) => (
+                            (() => {
+                              const unlocked = unlockedByCategory[difficulty];
+
+                              return (
                             <button
                               key={difficulty}
                               type="button"
+                              disabled={!unlocked}
                               onClick={() => {
+                                if (!unlocked) return;
                                 setSelectedDifficulty(difficulty);
                                 setOpenMenu(null);
                               }}
                               className={[
                                 "focus-ring flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-sm",
-                                selectedDifficulty === difficulty
+                                !unlocked ? "cursor-not-allowed opacity-55" : "",
+                                activeDifficulty === difficulty
                                   ? "bg-violet-500/25 text-violet-100"
                                   : "text-[var(--text-primary)] hover:bg-violet-500/12",
                               ].join(" ")}
                             >
-                              <span>{difficulty}</span>
-                              {selectedDifficulty === difficulty ? <Check className="h-3.5 w-3.5" /> : null}
+                              <span className="inline-flex items-center gap-1.5">
+                                {difficulty}
+                                {!unlocked ? <Lock className="h-3 w-3" /> : null}
+                              </span>
+                              {activeDifficulty === difficulty ? <Check className="h-3.5 w-3.5" /> : null}
                             </button>
+                              );
+                            })()
                           ))}
                         </motion.div>
                       ) : null}
@@ -326,7 +359,10 @@ function CategoryPreviewModalInner({ isOpen, category, onClose, onCategoryChange
                                   : "text-[var(--text-primary)] hover:bg-violet-500/12",
                               ].join(" ")}
                             >
-                              <span>{count} Qs</span>
+                              <span className="inline-flex items-center gap-2">
+                                {count} Qs
+                                {passedQuestionCounts.has(count) ? <span className="rounded-full border border-emerald-400/35 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-200">Passed</span> : null}
+                              </span>
                               {questionCount === count ? <Check className="h-3.5 w-3.5" /> : null}
                             </button>
                           ))}
@@ -394,7 +430,7 @@ function CategoryPreviewModalInner({ isOpen, category, onClose, onCategoryChange
               <button
                 type="button"
                 onClick={handleStart}
-                disabled={starting}
+                disabled={starting || !unlockedByCategory[activeDifficulty]}
                 className="arcade-btn btn-primary w-full rounded-button px-6 py-3 text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {starting ? "Starting..." : "Confirm & Start"}
@@ -403,7 +439,18 @@ function CategoryPreviewModalInner({ isOpen, category, onClose, onCategoryChange
             </div>
           </motion.div>
         </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+
+      <ProgressionInfoDialog
+        isOpen={showProgressionDialog}
+        categoryName={category.name}
+        easyPassed={easyPassedCount}
+        mediumPassed={mediumPassedCount}
+        hardPassed={hardPassedCount}
+        onCancel={() => setShowProgressionDialog(false)}
+        onConfirm={handleConfirmProgressionDialog}
+      />
+    </>
   );
 }

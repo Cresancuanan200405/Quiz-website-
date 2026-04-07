@@ -5,6 +5,8 @@ import { Heart, Bookmark, SkipForward } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { TriviaFact } from "@/lib/types";
 import { cx } from "@/lib/utils";
+import { useTriviaFactsStore } from "@/lib/triviaFactsStore";
+import { useNotificationStore } from "@/lib/notificationStore";
 
 interface FactCardProps {
   fact?: TriviaFact;
@@ -51,29 +53,6 @@ const fallbackDynamicFacts: DynamicFact[] = [
   },
 ];
 
-const LIKED_FACTS_KEY = "dynamic-liked-facts";
-const SAVED_FACTS_KEY = "dynamic-saved-facts";
-
-const readStoredSet = (key: string) => {
-  if (typeof window === "undefined") return new Set<string>();
-
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return new Set<string>();
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? new Set<string>(parsed.filter((item) => typeof item === "string"))
-      : new Set<string>();
-  } catch {
-    return new Set<string>();
-  }
-};
-
-const saveStoredSet = (key: string, value: Set<string>) => {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(Array.from(value)));
-};
-
 const buildHeadline = (text: string) => {
   const cleaned = text.replace(/\s+/g, " ").trim();
   if (!cleaned) return "Random Fact";
@@ -99,8 +78,8 @@ export default function FactCard({
   const [factQueue, setFactQueue] = useState<DynamicFact[]>(fallbackDynamicFacts);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(dynamic);
-  const [likedFacts, setLikedFacts] = useState<Set<string>>(() => readStoredSet(LIKED_FACTS_KEY));
-  const [savedFacts, setSavedFacts] = useState<Set<string>>(() => readStoredSet(SAVED_FACTS_KEY));
+  const { likedFactIds, savedFactIds, toggleLike, toggleSave } = useTriviaFactsStore();
+  const { pushNotification } = useNotificationStore();
 
   const dynamicFact = factQueue[activeIndex] ?? fallbackDynamicFacts[0];
   const queuePreview = useMemo(() => factQueue.filter((_, index) => index !== activeIndex).slice(0, 3), [activeIndex, factQueue]);
@@ -156,27 +135,39 @@ export default function FactCard({
   }, [dynamic, fetchRandomFact]);
 
   const activeDynamicId = dynamicFact.id;
+  const dynamicSnapshot = {
+    id: dynamicFact.id,
+    title: dynamicFact.title,
+    body: dynamicFact.body,
+    category: dynamicFact.category,
+  };
+  const likedFacts = useMemo(() => new Set(likedFactIds), [likedFactIds]);
+  const savedFacts = useMemo(() => new Set(savedFactIds), [savedFactIds]);
   const dynamicLiked = likedFacts.has(activeDynamicId);
   const dynamicSaved = savedFacts.has(activeDynamicId);
 
   const toggleDynamicLike = () => {
-    setLikedFacts((prev) => {
-      const next = new Set(prev);
-      if (next.has(activeDynamicId)) next.delete(activeDynamicId);
-      else next.add(activeDynamicId);
-      saveStoredSet(LIKED_FACTS_KEY, next);
-      return next;
-    });
+    toggleLike(activeDynamicId, dynamicSnapshot);
+    pushNotification(dynamicLiked ? "Removed like from fact." : "Liked fact.", "success");
   };
 
   const toggleDynamicSave = () => {
-    setSavedFacts((prev) => {
-      const next = new Set(prev);
-      if (next.has(activeDynamicId)) next.delete(activeDynamicId);
-      else next.add(activeDynamicId);
-      saveStoredSet(SAVED_FACTS_KEY, next);
-      return next;
-    });
+    toggleSave(activeDynamicId, dynamicSnapshot);
+    pushNotification(dynamicSaved ? "Removed saved fact." : "Fact saved.", "info");
+  };
+
+  const handleStaticLike = () => {
+    onLike?.();
+    if (displayedStaticFact.id !== "fallback-static") {
+      pushNotification(liked ? "Removed like from fact." : "Liked fact.", "success");
+    }
+  };
+
+  const handleStaticSave = () => {
+    onSave?.();
+    if (displayedStaticFact.id !== "fallback-static") {
+      pushNotification(saved ? "Removed saved fact." : "Fact saved.", "info");
+    }
   };
 
   const dynamicLikeCount = 1 + (dynamicLiked ? 1 : 0);
@@ -186,7 +177,10 @@ export default function FactCard({
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={cx("glass rounded-card p-4", featured && "border-l-4 border-amber-400 bg-amber-500/6")}
+      className={cx(
+        "glass rounded-card border border-black/10 bg-gradient-to-br from-white/80 via-white/60 to-amber-100/20 p-4 shadow-[0_16px_30px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-gradient-to-br dark:from-slate-900/72 dark:via-slate-900/52 dark:to-amber-900/18 dark:shadow-[0_18px_36px_rgba(2,8,25,0.42)]",
+        featured && "border-l-4 border-amber-400"
+      )}
     >
       {featured ? (
         <span className="mb-2 inline-flex rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-200">
@@ -230,7 +224,7 @@ export default function FactCard({
         <button
           type="button"
           aria-label="Like this fact"
-          onClick={dynamic ? toggleDynamicLike : onLike}
+          onClick={dynamic ? toggleDynamicLike : handleStaticLike}
           className={cx(
             "focus-ring arcade-btn flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs",
             (dynamic ? dynamicLiked : liked)
@@ -244,7 +238,7 @@ export default function FactCard({
         <button
           type="button"
           aria-label="Save this fact"
-          onClick={dynamic ? toggleDynamicSave : onSave}
+          onClick={dynamic ? toggleDynamicSave : handleStaticSave}
           className={cx(
             "focus-ring arcade-btn rounded-full border px-3 py-1.5 text-xs",
             (dynamic ? dynamicSaved : saved)

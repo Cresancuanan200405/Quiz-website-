@@ -13,6 +13,8 @@ interface SettingsState {
   soundEffects: boolean;
   music: boolean;
   autoStartNextQuiz: boolean;
+  nextQuestionDelaySeconds: number;
+  showDifficultyProgressionDialog: boolean;
   dailyReminder: boolean;
   challengeAlerts: boolean;
   emailNotifications: boolean;
@@ -21,7 +23,9 @@ interface SettingsState {
   setToggle: (key: keyof Pick<SettingsState, "publicProfile" | "showOnlineStatus" | "soundEffects" | "music" | "autoStartNextQuiz" | "dailyReminder" | "challengeAlerts" | "emailNotifications">, value: boolean) => void;
   setDefaultLanguage: (value: SettingsLanguage) => void;
   setPreferredDifficulty: (value: SettingsDifficulty) => void;
-  setAllSettings: (settings: Partial<Pick<SettingsState, "publicProfile" | "showOnlineStatus" | "soundEffects" | "music" | "autoStartNextQuiz" | "dailyReminder" | "challengeAlerts" | "emailNotifications" | "defaultLanguage" | "preferredDifficulty">>) => void;
+  setNextQuestionDelaySeconds: (value: number) => void;
+  setShowDifficultyProgressionDialog: (value: boolean) => void;
+  setAllSettings: (settings: Partial<Pick<SettingsState, "publicProfile" | "showOnlineStatus" | "soundEffects" | "music" | "autoStartNextQuiz" | "dailyReminder" | "challengeAlerts" | "emailNotifications" | "defaultLanguage" | "preferredDifficulty" | "nextQuestionDelaySeconds" | "showDifficultyProgressionDialog">>) => void;
 }
 
 const syncSettingsToSupabase = async (state: SettingsState) => {
@@ -31,6 +35,7 @@ const syncSettingsToSupabase = async (state: SettingsState) => {
     soundEffects: state.soundEffects,
     music: state.music,
     autoStartNextQuiz: state.autoStartNextQuiz,
+    nextQuestionDelaySeconds: state.nextQuestionDelaySeconds,
     dailyReminder: state.dailyReminder,
     challengeAlerts: state.challengeAlerts,
     emailNotifications: state.emailNotifications,
@@ -47,6 +52,8 @@ export const useSettingsStore = create<SettingsState>()(
       soundEffects: true,
       music: false,
       autoStartNextQuiz: true,
+      nextQuestionDelaySeconds: 3,
+      showDifficultyProgressionDialog: true,
       dailyReminder: true,
       challengeAlerts: true,
       emailNotifications: false,
@@ -75,6 +82,15 @@ export const useSettingsStore = create<SettingsState>()(
           void syncSettingsToSupabase(next);
           return { preferredDifficulty: value };
         }),
+      setNextQuestionDelaySeconds: (value) =>
+        set((state) => ({
+          ...state,
+          nextQuestionDelaySeconds: Math.max(1, Math.min(10, Math.round(value))),
+        })),
+      setShowDifficultyProgressionDialog: (value) =>
+        set(() => ({
+          showDifficultyProgressionDialog: value,
+        })),
     }),
     {
       name: "quizarena-settings",

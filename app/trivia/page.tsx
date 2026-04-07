@@ -6,6 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import FactCard from "@/components/FactCard";
 import { triviaFacts } from "@/lib/mockData";
+import { useTriviaFactsStore } from "@/lib/triviaFactsStore";
 import type { TriviaCategory } from "@/lib/types";
 import { cx } from "@/lib/utils";
 
@@ -13,9 +14,11 @@ const filters: Array<"All" | TriviaCategory> = ["All", "Science", "History", "Te
 
 export default function TriviaPage() {
   const [activeFilter, setActiveFilter] = useState<"All" | TriviaCategory>("All");
-  const [likedFacts, setLikedFacts] = useState<Set<string>>(new Set());
-  const [savedFacts, setSavedFacts] = useState<Set<string>>(new Set());
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
+  const { likedFactIds, savedFactIds, toggleLike, toggleSave } = useTriviaFactsStore();
+
+  const likedFacts = useMemo(() => new Set(likedFactIds), [likedFactIds]);
+  const savedFacts = useMemo(() => new Set(savedFactIds), [savedFactIds]);
 
   const filteredFacts = useMemo(
     () => triviaFacts.filter((fact) => activeFilter === "All" || fact.category === activeFilter),
@@ -69,19 +72,19 @@ export default function TriviaPage() {
             liked={likedFacts.has(featured.id)}
             saved={savedFacts.has(featured.id)}
             onLike={() =>
-              setLikedFacts((prev) => {
-                const next = new Set(prev);
-                if (next.has(featured.id)) next.delete(featured.id);
-                else next.add(featured.id);
-                return next;
+              toggleLike(featured.id, {
+                id: featured.id,
+                title: featured.title,
+                body: featured.body,
+                category: featured.category,
               })
             }
             onSave={() =>
-              setSavedFacts((prev) => {
-                const next = new Set(prev);
-                if (next.has(featured.id)) next.delete(featured.id);
-                else next.add(featured.id);
-                return next;
+              toggleSave(featured.id, {
+                id: featured.id,
+                title: featured.title,
+                body: featured.body,
+                category: featured.category,
               })
             }
             onNext={goNext}
@@ -96,19 +99,19 @@ export default function TriviaPage() {
               liked={likedFacts.has(fact.id)}
               saved={savedFacts.has(fact.id)}
               onLike={() =>
-                setLikedFacts((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(fact.id)) next.delete(fact.id);
-                  else next.add(fact.id);
-                  return next;
+                toggleLike(fact.id, {
+                  id: fact.id,
+                  title: fact.title,
+                  body: fact.body,
+                  category: fact.category,
                 })
               }
               onSave={() =>
-                setSavedFacts((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(fact.id)) next.delete(fact.id);
-                  else next.add(fact.id);
-                  return next;
+                toggleSave(fact.id, {
+                  id: fact.id,
+                  title: fact.title,
+                  body: fact.body,
+                  category: fact.category,
                 })
               }
               onNext={goNext}

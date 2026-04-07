@@ -34,6 +34,7 @@ interface CategoryCardProps {
   active?: boolean;
   onClick?: () => void;
   hideDifficulty?: boolean;
+  compact?: boolean;
 }
 
 const categoryDescriptionMap: Record<string, string> = {
@@ -57,6 +58,7 @@ export default function CategoryCard({
   active,
   onClick,
   hideDifficulty,
+  compact,
 }: CategoryCardProps) {
   const icon = iconMap[iconName] ?? faFlask;
   const blurb = description ?? categoryDescriptionMap[name] ?? "Challenge yourself with a fresh set of curated questions.";
@@ -68,15 +70,15 @@ export default function CategoryCard({
       onClick={onClick}
       whileHover={{ y: -4 }}
       whileTap={{ scale: 0.97 }}
-      className="focus-ring glass arcade-btn w-full rounded-card p-4 text-left"
+      className={`focus-ring glass arcade-btn w-full rounded-card border border-black/8 bg-gradient-to-br from-white/80 via-white/55 to-violet-100/35 text-left shadow-[0_14px_28px_rgba(15,23,42,0.11)] transition-all duration-200 dark:border-white/10 dark:from-slate-900/72 dark:via-slate-900/55 dark:to-violet-900/24 dark:shadow-[0_16px_32px_rgba(2,8,25,0.35)] ${compact ? "quiz-category-card p-2.5" : "p-4"}`}
       style={{
         boxShadow: active ? `0 14px 35px ${color}66` : undefined,
         borderColor: active ? color : undefined,
       }}
     >
-      <div className="mb-3 flex items-center justify-between">
-        <span className="grid h-9 w-9 place-items-center rounded-full bg-violet-500/12 text-violet-700 dark:text-violet-200">
-          <FontAwesomeIcon icon={icon} className="h-4 w-4" />
+      <div className={`flex items-center justify-between ${compact ? "mb-1.5" : "mb-3"}`}>
+        <span className={`grid place-items-center rounded-full bg-violet-500/12 text-violet-700 dark:text-violet-200 ${compact ? "h-8 w-8" : "h-9 w-9"}`}>
+          <FontAwesomeIcon icon={icon} className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
         </span>
         {!hideDifficulty && (
           <span className="rounded-full border border-black/8 bg-black/5 px-2 py-0.5 text-xs text-[var(--text-secondary)] dark:border-white/10 dark:bg-black/30 dark:text-white/75">
@@ -84,8 +86,22 @@ export default function CategoryCard({
           </span>
         )}
       </div>
-      <h3 className="mb-1 font-sora text-lg font-semibold text-[var(--text-primary)]">{name}</h3>
-      <p className="text-sm text-[var(--text-secondary)]">{blurb}</p>
+      <h3 className={`font-sora font-semibold text-[var(--text-primary)] ${compact ? "mb-1 text-sm" : "mb-1 text-lg"}`}>{name}</h3>
+      <p
+        className={`text-[var(--text-secondary)] ${compact ? "text-[11px] leading-snug" : "text-sm"}`}
+        style={
+          compact
+            ? {
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }
+            : undefined
+        }
+      >
+        {blurb}
+      </p>
     </motion.button>
   );
 }

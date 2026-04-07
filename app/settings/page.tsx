@@ -1,15 +1,17 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
-import { ChevronDown, Globe, Headphones, BellRing, LockKeyhole, Eye, Sparkles, Volume2, Shield, Users } from "lucide-react";
+import { ChevronDown, Globe, Headphones, BellRing, LockKeyhole, Eye, Sparkles, Volume2, Shield, Users, Activity } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import { cx } from "@/lib/utils";
 import { useSettingsStore, type SettingsDifficulty, type SettingsLanguage } from "@/lib/settingsStore";
+import { useTriviaFactsStore } from "@/lib/triviaFactsStore";
 
 const languageOptions: SettingsLanguage[] = ["English", "Spanish", "French", "Japanese"];
 const difficultyOptions: SettingsDifficulty[] = ["Easy", "Medium", "Hard"];
+const nextQuestionDelayOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => `${value} seconds`);
 
 function SettingRow({
   icon,
@@ -91,6 +93,51 @@ function SelectField({
   );
 }
 
+function SettingsAccordion({
+  title,
+  description,
+  icon,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  description: string;
+  icon: ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <article className="glass overflow-hidden rounded-card border border-white/10">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="focus-ring flex w-full items-start justify-between gap-3 px-5 py-4 text-left"
+      >
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-full bg-violet-500/15 text-violet-300 shadow-[0_0_18px_rgba(124,58,237,0.18)]">
+            {icon}
+          </div>
+          <div>
+            <h2 className="font-sora text-lg font-semibold text-[var(--text-primary)]">{title}</h2>
+            <p className="text-sm text-[var(--text-secondary)]">{description}</p>
+          </div>
+        </div>
+        <ChevronDown className={cx("mt-1 h-5 w-5 text-[var(--text-secondary)] transition-transform", open ? "rotate-180" : "rotate-0")} />
+      </button>
+      <motion.div
+        initial={false}
+        animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
+        className="overflow-hidden"
+      >
+        <div className="space-y-3 border-t border-black/8 px-5 pb-5 pt-4 dark:border-white/10">{children}</div>
+      </motion.div>
+    </article>
+  );
+}
+
 export default function SettingsPage() {
   const {
     publicProfile,
@@ -98,6 +145,8 @@ export default function SettingsPage() {
     soundEffects,
     music,
     autoStartNextQuiz,
+    nextQuestionDelaySeconds,
+    showDifficultyProgressionDialog,
     dailyReminder,
     challengeAlerts,
     emailNotifications,
@@ -106,50 +155,22 @@ export default function SettingsPage() {
     setToggle,
     setDefaultLanguage,
     setPreferredDifficulty,
+    setNextQuestionDelaySeconds,
+    setShowDifficultyProgressionDialog,
   } = useSettingsStore();
+  const { factActivity } = useTriviaFactsStore();
+  const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({
+    profile: true,
+    gameplay: false,
+    notifications: false,
+    activity: false,
+  });
 
-  const sections = useMemo(
-    () => [
-      {
-        title: "Account & Profile",
-        icon: <LockKeyhole className="h-4 w-4" />,
-        description: "Control what other players can see and manage profile visibility.",
-        content: (
-          <>
-            <SettingRow icon={<Users className="h-4 w-4" />} title="Public Profile" description="Let other players view your profile card and badges." checked={publicProfile} onToggle={(value) => setToggle("publicProfile", value)} />
-            <SettingRow icon={<Eye className="h-4 w-4" />} title="Online Status" description="Show when you are active on the platform." checked={showOnlineStatus} onToggle={(value) => setToggle("showOnlineStatus", value)} />
-          </>
-        ),
-      },
-      {
-        title: "Gameplay & Sound",
-        icon: <Volume2 className="h-4 w-4" />,
-        description: "Tune your play experience, challenge flow, and sound feedback.",
-        content: (
-          <>
-            <SettingRow icon={<Headphones className="h-4 w-4" />} title="Sound Effects" description="Enable neon audio cues for quiz actions and transitions." checked={soundEffects} onToggle={(value) => setToggle("soundEffects", value)} />
-            <SettingRow icon={<Sparkles className="h-4 w-4" />} title="Auto Start Next Quiz" description="Jump straight into another round after finishing." checked={autoStartNextQuiz} onToggle={(value) => setToggle("autoStartNextQuiz", value)} />
-            <SettingRow icon={<Volume2 className="h-4 w-4" />} title="Music" description="Play subtle ambient background music in the arcade UI." checked={music} onToggle={(value) => setToggle("music", value)} />
-            <SelectField icon={<Shield className="h-4 w-4" />} label="Preferred Difficulty" value={preferredDifficulty} onChange={(value) => setPreferredDifficulty(value as SettingsDifficulty)} options={difficultyOptions} />
-          </>
-        ),
-      },
-      {
-        title: "Notifications",
-        icon: <BellRing className="h-4 w-4" />,
-        description: "Choose which alerts should reach you and how often.",
-        content: (
-          <>
-            <SettingRow icon={<BellRing className="h-4 w-4" />} title="Daily Reminder" description="Send a reminder when your quiz streak is ready." checked={dailyReminder} onToggle={(value) => setToggle("dailyReminder", value)} />
-            <SettingRow icon={<Sparkles className="h-4 w-4" />} title="Challenge Alerts" description="Get pinged when someone sends a 1v1 challenge." checked={challengeAlerts} onToggle={(value) => setToggle("challengeAlerts", value)} />
-            <SettingRow icon={<Users className="h-4 w-4" />} title="Email Notifications" description="Receive platform updates and weekly summaries by email." checked={emailNotifications} onToggle={(value) => setToggle("emailNotifications", value)} />
-            <SelectField icon={<Globe className="h-4 w-4" />} label="Default Language" value={defaultLanguage} onChange={(value) => setDefaultLanguage(value as SettingsLanguage)} options={languageOptions} />
-          </>
-        ),
-      },
-    ],
-    [autoStartNextQuiz, challengeAlerts, dailyReminder, defaultLanguage, emailNotifications, music, preferredDifficulty, publicProfile, setDefaultLanguage, setPreferredDifficulty, setToggle, showOnlineStatus, soundEffects]
-  );
+  const activityLog = useMemo(() => factActivity.slice(0, 20), [factActivity]);
+
+  const togglePanel = (key: string) => {
+    setOpenPanels((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   return (
     <div className="min-h-screen pb-20 text-[var(--text-primary)] md:pb-0">
@@ -170,46 +191,85 @@ export default function SettingsPage() {
                 <div className="max-w-2xl">
                   <h1 className="font-sora text-3xl font-bold tracking-tight text-[var(--text-primary)]">User Settings</h1>
                   <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                    Configure account, gameplay, sound, and notification preferences from one balanced control panel.
+                    Clean dropdown panels for account controls, gameplay tuning, notifications, and activity tracking.
                   </p>
                 </div>
                 <div className="grid gap-2 rounded-card border border-violet-400/20 bg-white/5 px-4 py-3 text-sm text-[var(--text-secondary)] dark:bg-white/5">
-                  <p><span className="text-[var(--text-primary)]">Profile</span> and <span className="text-[var(--text-primary)]">gameplay</span> states are saved locally.</p>
-                  <p>Dropdowns keep the layout symmetrical and compact.</p>
+                  <p>Use each dropdown to focus on one settings area at a time.</p>
+                  <p>Activity Log tracks your fact likes/saves in real time.</p>
                 </div>
               </div>
             </div>
           </section>
 
-          <section className="grid gap-5 lg:grid-cols-2">
-            {sections.slice(0, 2).map((section) => (
-              <article key={section.title} className="glass rounded-card border border-white/10 p-5">
-                <div className="mb-4 flex items-start gap-3">
-                  <div className="grid h-11 w-11 place-items-center rounded-full bg-violet-500/15 text-violet-300 shadow-[0_0_18px_rgba(124,58,237,0.18)]">
-                    {section.icon}
-                  </div>
-                  <div>
-                    <h2 className="font-sora text-xl font-semibold text-[var(--text-primary)]">{section.title}</h2>
-                    <p className="text-sm text-[var(--text-secondary)]">{section.description}</p>
-                  </div>
-                </div>
-                <div className="space-y-3">{section.content}</div>
-              </article>
-            ))}
-          </section>
+          <div className="space-y-4">
+            <SettingsAccordion
+              title="Account & Profile"
+              description="Control what other players can see and manage profile visibility."
+              icon={<LockKeyhole className="h-4 w-4" />}
+              open={openPanels.profile}
+              onToggle={() => togglePanel("profile")}
+            >
+              <SettingRow icon={<Users className="h-4 w-4" />} title="Public Profile" description="Let other players view your profile card and badges." checked={publicProfile} onToggle={(value) => setToggle("publicProfile", value)} />
+              <SettingRow icon={<Eye className="h-4 w-4" />} title="Online Status" description="Show when you are active on the platform." checked={showOnlineStatus} onToggle={(value) => setToggle("showOnlineStatus", value)} />
+            </SettingsAccordion>
 
-          <section className="glass rounded-card border border-white/10 p-5">
-            <div className="mb-4 flex items-start gap-3">
-              <div className="grid h-11 w-11 place-items-center rounded-full bg-violet-500/15 text-violet-300 shadow-[0_0_18px_rgba(124,58,237,0.18)]">
-                {sections[2].icon}
-              </div>
-              <div>
-                <h2 className="font-sora text-xl font-semibold text-[var(--text-primary)]">{sections[2].title}</h2>
-                <p className="text-sm text-[var(--text-secondary)]">{sections[2].description}</p>
-              </div>
-            </div>
-            <div className="grid gap-3 lg:grid-cols-2">{sections[2].content}</div>
-          </section>
+            <SettingsAccordion
+              title="Gameplay & Sound"
+              description="Tune your play experience, challenge flow, and sound feedback."
+              icon={<Volume2 className="h-4 w-4" />}
+              open={openPanels.gameplay}
+              onToggle={() => togglePanel("gameplay")}
+            >
+              <SettingRow icon={<Headphones className="h-4 w-4" />} title="Sound Effects" description="Enable neon audio cues for quiz actions and transitions." checked={soundEffects} onToggle={(value) => setToggle("soundEffects", value)} />
+              <SettingRow icon={<Sparkles className="h-4 w-4" />} title="Auto Start Next Quiz" description="Jump straight into another round after finishing." checked={autoStartNextQuiz} onToggle={(value) => setToggle("autoStartNextQuiz", value)} />
+              <SelectField icon={<Sparkles className="h-4 w-4" />} label="Next Question Delay" value={`${nextQuestionDelaySeconds} seconds`} onChange={(value) => setNextQuestionDelaySeconds(Number.parseInt(value, 10))} options={nextQuestionDelayOptions} />
+              <SettingRow icon={<Sparkles className="h-4 w-4" />} title="Show Progression Dialog" description="Show the difficulty progression dialog before starting a quiz." checked={showDifficultyProgressionDialog} onToggle={(value) => setShowDifficultyProgressionDialog(value)} />
+              <SettingRow icon={<Volume2 className="h-4 w-4" />} title="Music" description="Play subtle ambient background music in the arcade UI." checked={music} onToggle={(value) => setToggle("music", value)} />
+              <SelectField icon={<Shield className="h-4 w-4" />} label="Preferred Difficulty" value={preferredDifficulty} onChange={(value) => setPreferredDifficulty(value as SettingsDifficulty)} options={difficultyOptions} />
+            </SettingsAccordion>
+
+            <SettingsAccordion
+              title="Notifications"
+              description="Choose which alerts should reach you and how often."
+              icon={<BellRing className="h-4 w-4" />}
+              open={openPanels.notifications}
+              onToggle={() => togglePanel("notifications")}
+            >
+              <SettingRow icon={<BellRing className="h-4 w-4" />} title="Daily Reminder" description="Send a reminder when your quiz streak is ready." checked={dailyReminder} onToggle={(value) => setToggle("dailyReminder", value)} />
+              <SettingRow icon={<Sparkles className="h-4 w-4" />} title="Challenge Alerts" description="Get pinged when someone sends a 1v1 challenge." checked={challengeAlerts} onToggle={(value) => setToggle("challengeAlerts", value)} />
+              <SettingRow icon={<Users className="h-4 w-4" />} title="Email Notifications" description="Receive platform updates and weekly summaries by email." checked={emailNotifications} onToggle={(value) => setToggle("emailNotifications", value)} />
+              <SelectField icon={<Globe className="h-4 w-4" />} label="Default Language" value={defaultLanguage} onChange={(value) => setDefaultLanguage(value as SettingsLanguage)} options={languageOptions} />
+            </SettingsAccordion>
+
+            <SettingsAccordion
+              title="My Activity"
+              description="Activity Log of your saved and liked facts."
+              icon={<Activity className="h-4 w-4" />}
+              open={openPanels.activity}
+              onToggle={() => togglePanel("activity")}
+            >
+              {activityLog.length ? (
+                <div className="space-y-2">
+                  {activityLog.map((item) => (
+                    <article key={item.id} className="rounded-card border border-fuchsia-300/30 bg-fuchsia-500/8 px-4 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-medium text-[var(--text-primary)]">{item.factTitle}</p>
+                        <span className="rounded-full border border-fuchsia-300/45 bg-fuchsia-500/18 px-2.5 py-0.5 text-xs capitalize text-fuchsia-200">
+                          {item.action}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-[var(--text-secondary)]">{item.category} • {new Date(item.at).toLocaleString()}</p>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <article className="rounded-card border border-fuchsia-300/25 bg-fuchsia-500/8 p-4 text-sm text-[var(--text-secondary)]">
+                  No activity yet. Like or save a fact from Dashboard or Trivia to populate this log.
+                </article>
+              )}
+            </SettingsAccordion>
+          </div>
         </div>
       </motion.main>
     </div>

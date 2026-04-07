@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -10,7 +11,6 @@ import {
   Trophy,
   BrainCircuit,
   Sparkles,
-  Zap,
   ChevronLeft,
   ChevronRight,
   X,
@@ -100,7 +100,7 @@ export default function Sidebar() {
       >
         <div className={cx("mb-6 mt-3 flex items-center px-3", isCollapsed ? "justify-center" : "gap-3") }>
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-violet-500/20 text-violet-300 shadow-violet-glow">
-            <Zap className="h-5 w-5" />
+            <Image src="/images/Quiz2.png" alt="QuizArena logo" width={38} height={38} className="h-9 w-9 object-cover" />
           </div>
           <AnimatePresence>
             {!isCollapsed ? (
@@ -202,7 +202,7 @@ export default function Sidebar() {
               <div className="mb-6 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="grid h-9 w-9 place-items-center rounded-xl bg-violet-500/20 text-violet-300">
-                    <Zap className="h-5 w-5" />
+                    <Image src="/images/Quiz2.png" alt="QuizArena logo" width={34} height={34} className="h-8 w-8 object-cover" />
                   </span>
                   <span className="font-sora text-xl font-semibold text-[var(--text-primary)] dark:text-white">QuizArena</span>
                 </div>

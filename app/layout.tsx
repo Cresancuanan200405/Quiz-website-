@@ -17,6 +17,11 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: "QuizArena",
   description: "Dark arcade premium quiz, trivia, and 1v1 battle platform",
+  icons: {
+    icon: "/images/Quiz3.png",
+    shortcut: "/images/Quiz3.png",
+    apple: "/images/Quiz3.png",
+  },
 };
 
 export default function RootLayout({

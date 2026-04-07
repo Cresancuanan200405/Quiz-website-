@@ -38,6 +38,7 @@ export interface PersistedSettingsPayload {
   soundEffects: boolean;
   music: boolean;
   autoStartNextQuiz: boolean;
+  nextQuestionDelaySeconds: number;
   dailyReminder: boolean;
   challengeAlerts: boolean;
   emailNotifications: boolean;

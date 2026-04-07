@@ -5,19 +5,33 @@ import { AnimatePresence, motion } from "framer-motion";
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import LeaderboardRow from "@/components/LeaderboardRow";
-import { currentUser, leaderboardUsers } from "@/lib/mockData";
+import { currentUser } from "@/lib/mockData";
+import { usePlayerStatsStore } from "@/lib/playerStatsStore";
+import { getRankedLeaderboard } from "@/lib/leaderboard";
 import type { BoardTab } from "@/lib/types";
 
 const tabs: BoardTab[] = ["global", "daily", "weekly"];
 
 export default function LeaderboardPage() {
   const [activeTab, setActiveTab] = useState<BoardTab>("global");
+  const { quizzesCompleted, totalCorrectAnswers, totalAnsweredQuestions, totalPoints } = usePlayerStatsStore();
+
+  const rankedLeaderboard = useMemo(
+    () =>
+      getRankedLeaderboard({
+        quizzesCompleted,
+        totalCorrectAnswers,
+        totalAnsweredQuestions,
+        totalPoints,
+      }),
+    [quizzesCompleted, totalCorrectAnswers, totalAnsweredQuestions, totalPoints]
+  );
 
   const rows = useMemo(() => {
-    if (activeTab === "global") return leaderboardUsers;
-    if (activeTab === "daily") return [...leaderboardUsers].sort((a, b) => b.accuracy - a.accuracy);
-    return [...leaderboardUsers].sort((a, b) => b.quizCount - a.quizCount);
-  }, [activeTab]);
+    if (activeTab === "global") return rankedLeaderboard;
+    if (activeTab === "daily") return [...rankedLeaderboard].sort((a, b) => b.accuracy - a.accuracy).map((user, index) => ({ ...user, rank: index + 1 }));
+    return [...rankedLeaderboard].sort((a, b) => b.quizCount - a.quizCount).map((user, index) => ({ ...user, rank: index + 1 }));
+  }, [activeTab, rankedLeaderboard]);
 
   return (
     <div className="min-h-screen pb-20 text-[var(--text-primary)] md:pb-0">
@@ -76,8 +90,9 @@ export default function LeaderboardPage() {
             {rows.slice(0, 12).map((user, index) => (
               <LeaderboardRow
                 key={`${activeTab}-${user.id}`}
-                user={{ ...user, rank: index + 1 }}
-                highlight={user.username === currentUser.username}
+                user={user}
+                href={`/player/${user.id}`}
+                highlight={user.id === currentUser.id}
                 index={index}
               />
             ))}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ShieldCheck, Swords, Trophy } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -9,14 +9,48 @@ import TopBar from "@/components/TopBar";
 import CategoryCard from "@/components/CategoryCard";
 import FactCard from "@/components/FactCard";
 import StatCard from "@/components/StatCard";
-import LeaderboardRow from "@/components/LeaderboardRow";
 import CategoryPreviewModal from "@/components/CategoryPreviewModal";
-import { categoryMeta, currentUser, leaderboardUsers, onlinePlayers } from "@/lib/mockData";
+import LeaderboardRow from "@/components/LeaderboardRow";
+import { categoryMeta, currentUser, onlinePlayers } from "@/lib/mockData";
+import { usePlayerStatsStore } from "@/lib/playerStatsStore";
+import { getRankedLeaderboard } from "@/lib/leaderboard";
 
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<(typeof categoryMeta)[0] | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [displayShowAllCategories, setDisplayShowAllCategories] = useState(false);
+  const [now] = useState(() => Date.now());
+  const { quizzesCompleted, totalCorrectAnswers, totalAnsweredQuestions, totalPoints, bestStreak, quizHistory } = usePlayerStatsStore();
+
+  const dashboardAccuracy = totalAnsweredQuestions > 0 ? Math.round((totalCorrectAnswers / totalAnsweredQuestions) * 100) : 0;
+  const dashboardQuizzes = quizzesCompleted;
+  const dashboardStreak = bestStreak;
+  const weeklyStats = useMemo(() => {
+    const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const recentQuizzes = quizHistory.filter((entry) => new Date(entry.completedAt).getTime() >= weekAgo);
+    const weeklyPoints = recentQuizzes.reduce((sum, entry) => sum + entry.points, 0);
+    const weeklyQuizzes = recentQuizzes.length;
+    const weeklyTargetPoints = Math.max(500, currentUser.weeklyGoal * 10);
+    const weeklyGoalProgress = Math.min(100, Math.round((weeklyPoints / weeklyTargetPoints) * 100));
+
+    return {
+      weeklyPoints,
+      weeklyQuizzes,
+      weeklyTargetPoints,
+      weeklyGoalProgress,
+    };
+  }, [now, quizHistory]);
+  const hasNoQuizRecords = dashboardAccuracy === 0 && dashboardStreak === 0 && dashboardQuizzes === 0;
+  const leaderboardRows = useMemo(
+    () =>
+      getRankedLeaderboard({
+        quizzesCompleted,
+        totalCorrectAnswers,
+        totalAnsweredQuestions,
+        totalPoints,
+      }).slice(0, 5),
+    [quizzesCompleted, totalCorrectAnswers, totalAnsweredQuestions, totalPoints]
+  );
 
   return (
     <div className="min-h-screen pb-20 dark:bg-[#0A0B14] bg-[#F8F7FF] md:pb-0">
@@ -30,36 +64,35 @@ export default function Home() {
         className="w-full px-4 py-6 md:ml-[var(--sidebar-width)] md:w-[calc(100%-var(--sidebar-width))] md:px-8"
       >
         <div className="mx-auto w-full max-w-6xl space-y-5">
-          <section className="glass rounded-card p-6 dark:from-violet-950/50 from-violet-50">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
+          <section className="relative overflow-hidden rounded-card border border-black/10 bg-white/70 p-6 shadow-[0_16px_42px_rgba(15,23,42,0.16)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/70 dark:shadow-[0_20px_56px_rgba(2,8,32,0.5)]">
+            <div className="pointer-events-none absolute -right-24 -top-28 h-64 w-64 rounded-full bg-violet-500/25 blur-3xl dark:bg-violet-500/30" />
+            <div className="pointer-events-none absolute -bottom-24 left-24 h-64 w-64 rounded-full bg-cyan-400/20 blur-3xl dark:bg-blue-500/25" />
+
+            <div className="relative flex flex-wrap items-center justify-between gap-5">
+              <div className="max-w-2xl">
                 <p className="mb-1 text-sm text-violet-700 dark:text-violet-200">Welcome back {currentUser.username}</p>
-                <h1 className="font-sora text-3xl font-bold dark:text-white text-gray-900">Ready for another streak?</h1>
-                <p className="mt-2 max-w-xl text-sm dark:text-white/70 text-gray-600">
+                <h1 className="font-sora text-3xl font-bold text-slate-900 sm:text-5xl dark:text-white">Ready for another streak?</h1>
+                <p className="mt-3 text-base text-slate-700 sm:text-lg dark:text-white/65">
                   You&apos;re just 420 points away from breaking into top 5. Keep answering fast to climb.
                 </p>
               </div>
-              <button
-                type="button"
-                aria-label="Start quiz"
-                onClick={() => {
-                  setSelectedCategory(null);
-                  setIsModalOpen(false);
-                }}
-                className="focus-ring arcade-btn btn-primary inline-flex items-center gap-2 rounded-button px-5 py-3 font-medium"
+              <Link
+                href="/quiz?instant=1"
+                className="focus-ring inline-flex items-center gap-2 rounded-2xl border border-violet-400/35 bg-gradient-to-r from-violet-600 to-indigo-600 px-7 py-4 text-xl font-semibold text-white shadow-[0_16px_34px_rgba(124,58,237,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_22px_44px_rgba(124,58,237,0.45)]"
+                aria-label="Start an instant quiz"
               >
-                Start Quiz <ArrowRight className="h-4 w-4" />
-              </button>
+                Start Instant Quiz <ArrowRight className="h-5 w-5" />
+              </Link>
             </div>
 
-            <div className="mt-5 grid gap-2 sm:grid-cols-3">
-              <span className="rounded-full border border-green-400/25 bg-green-500/10 px-3 py-1 text-sm dark:text-green-200 text-green-700">
-                Accuracy {currentUser.accuracy}%
+            <div className="relative mt-6 grid gap-2 sm:grid-cols-3">
+              <span className="rounded-full border border-green-400/35 bg-green-500/10 px-3 py-1 text-sm text-green-700 dark:text-green-200">
+                Accuracy {dashboardAccuracy}%
               </span>
-              <span className="rounded-full border border-blue-400/25 bg-blue-500/10 px-3 py-1 text-sm dark:text-blue-200 text-blue-700">
-                Quizzes {currentUser.quizCount}
+              <span className="rounded-full border border-blue-400/35 bg-blue-500/10 px-3 py-1 text-sm text-blue-700 dark:text-blue-200">
+                Quizzes {dashboardQuizzes}
               </span>
-              <span className="rounded-full border border-violet-400/25 bg-violet-500/10 px-3 py-1 text-sm dark:text-violet-200 text-violet-700">
+              <span className="rounded-full border border-violet-400/35 bg-violet-500/10 px-3 py-1 text-sm text-violet-700 dark:text-violet-200">
                 Rank #{currentUser.rank}
               </span>
             </div>
@@ -127,26 +160,51 @@ export default function Home() {
           <section className="grid items-start gap-4 lg:grid-cols-2">
           <div className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-3">
-              <StatCard label="Accuracy" value={`${currentUser.accuracy}%`} tone="green" icon={<ShieldCheck className="h-4 w-4" />} />
-              <StatCard label="Streak" value={`${currentUser.streak}`} tone="amber" icon={<Trophy className="h-4 w-4" />} />
-              <StatCard label="Quizzes" value={`${currentUser.quizCount}`} tone="blue" icon={<ArrowRight className="h-4 w-4" />} />
+              <StatCard label="Accuracy" value={`${dashboardAccuracy}%`} tone="green" icon={<ShieldCheck className="h-4 w-4" />} />
+              <StatCard label="Streak" value={`${dashboardStreak}`} tone="amber" icon={<Trophy className="h-4 w-4" />} />
+              <StatCard label="Quizzes" value={`${dashboardQuizzes}`} tone="blue" icon={<ArrowRight className="h-4 w-4" />} />
             </div>
-            <div className="glass rounded-card p-4 dark:bg-white/5 bg-gray-50 dark:border-white/10 border-gray-100">
-              <div className="mb-2 flex items-center justify-between text-sm dark:text-white/70 text-gray-600">
-                <p>Weekly Goal</p>
-                <p>{currentUser.weeklyGoal}%</p>
+            {hasNoQuizRecords ? (
+              <p className="text-xs text-[var(--text-secondary)]">No quiz records yet. Play a quiz to populate your dashboard stats.</p>
+            ) : null}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="glass rounded-card border border-black/10 bg-gradient-to-br from-white/78 via-white/60 to-cyan-100/25 p-4 shadow-[0_16px_28px_rgba(15,23,42,0.1)] dark:border-white/10 dark:bg-gradient-to-br dark:from-slate-900/70 dark:via-slate-900/50 dark:to-cyan-900/18 dark:shadow-[0_18px_32px_rgba(2,8,25,0.4)]">
+                <div className="mb-2 flex items-center justify-between text-sm dark:text-white/70 text-gray-600">
+                  <p>Weekly Goal</p>
+                  <p>{weeklyStats.weeklyGoalProgress}%</p>
+                </div>
+                <div className="h-3 overflow-hidden rounded-full dark:bg-white/10 bg-black/5">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${weeklyStats.weeklyGoalProgress}%` }}
+                    className="h-full rounded-full bg-gradient-to-r from-violet-500 to-green-400"
+                  />
+                </div>
+                <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                  {weeklyStats.weeklyPoints} / {weeklyStats.weeklyTargetPoints} points this week
+                </p>
               </div>
-              <div className="h-3 overflow-hidden rounded-full dark:bg-white/10 bg-black/5">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${currentUser.weeklyGoal}%` }}
-                  className="h-full rounded-full bg-gradient-to-r from-violet-500 to-green-400"
-                />
+
+              <div className="glass rounded-card border border-black/10 bg-gradient-to-br from-white/78 via-white/60 to-fuchsia-100/25 p-4 shadow-[0_16px_28px_rgba(15,23,42,0.1)] dark:border-white/10 dark:bg-gradient-to-br dark:from-slate-900/70 dark:via-slate-900/50 dark:to-fuchsia-900/18 dark:shadow-[0_18px_32px_rgba(2,8,25,0.4)]">
+                <div className="mb-2 flex items-center justify-between text-sm dark:text-white/70 text-gray-600">
+                  <p>Weekly Activity</p>
+                  <p>{weeklyStats.weeklyQuizzes} quizzes</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-card border border-black/8 bg-white/40 p-3 dark:border-white/10 dark:bg-white/5">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--text-secondary)]">Points</p>
+                    <p className="mt-1 font-sora text-2xl font-semibold text-[var(--text-primary)]">{weeklyStats.weeklyPoints}</p>
+                  </div>
+                  <div className="rounded-card border border-black/8 bg-white/40 p-3 dark:border-white/10 dark:bg-white/5">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--text-secondary)]">Quizzes</p>
+                    <p className="mt-1 font-sora text-2xl font-semibold text-[var(--text-primary)]">{weeklyStats.weeklyQuizzes}</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <article className="glass rounded-card p-5 dark:bg-white/5 bg-white dark:border-white/10 border-gray-100 dark:shadow-none shadow-sm hover:shadow-md">
+          <article className="glass rounded-card border border-black/10 bg-gradient-to-br from-white/80 via-white/60 to-violet-100/30 p-5 shadow-[0_16px_30px_rgba(15,23,42,0.12)] transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_36px_rgba(99,102,241,0.2)] dark:border-white/10 dark:bg-gradient-to-br dark:from-slate-900/72 dark:via-slate-900/52 dark:to-violet-900/22 dark:shadow-[0_18px_36px_rgba(2,8,25,0.42)]">
             <p className="mb-4 font-sora text-lg font-semibold dark:text-white text-gray-900">1v1 Quick Start</p>
             <div className="mb-4 grid grid-cols-3 items-center text-center">
               <div className="grid place-items-center gap-2">
@@ -172,22 +230,37 @@ export default function Home() {
         </section>
 
           <section className="grid items-start gap-4 lg:grid-cols-2">
-          <article className="glass rounded-card p-4 dark:bg-white/5 bg-white dark:border-white/10 border-gray-100 dark:shadow-none shadow-sm hover:shadow-md">
+          <article className="glass rounded-card border border-black/10 bg-gradient-to-br from-white/80 via-white/60 to-indigo-100/28 p-4 shadow-[0_16px_30px_rgba(15,23,42,0.12)] transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_36px_rgba(79,70,229,0.18)] dark:border-white/10 dark:bg-gradient-to-br dark:from-slate-900/72 dark:via-slate-900/52 dark:to-indigo-900/22 dark:shadow-[0_18px_36px_rgba(2,8,25,0.42)]">
             <div className="mb-3 flex items-center justify-between">
-              <p className="font-sora text-lg font-semibold dark:text-white text-gray-900">Leaderboard Preview</p>
+              <div>
+                <p className="font-sora text-lg font-semibold dark:text-white text-gray-900">Leaderboard Preview</p>
+                <p className="text-xs text-[var(--text-secondary)]">Top players with live rank accents and tier highlights</p>
+              </div>
               <Link href="/leaderboard" className="text-sm text-violet-700 hover:text-violet-600 dark:text-violet-200 dark:hover:text-violet-100">
                 See all
               </Link>
             </div>
-            <div className="space-y-2 overflow-x-auto">
-              {leaderboardUsers.slice(0, 5).map((user, index) => (
-                <LeaderboardRow
-                  key={user.id}
-                  user={{ ...user, rank: index + 1 }}
-                  highlight={user.username === currentUser.username}
-                  index={index}
-                />
-              ))}
+
+            <div className="rounded-card border border-black/8 bg-white/40 p-2 dark:border-white/10 dark:bg-white/5">
+              <div className="mb-2 grid grid-cols-[52px_minmax(0,1fr)_minmax(74px,92px)_minmax(88px,110px)] gap-3 px-2 text-[10px] uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+                <span>Rank</span>
+                <span>Player</span>
+                <span>Score</span>
+                <span>Tier</span>
+              </div>
+              <div className="space-y-1.5">
+                {leaderboardRows.map((user, index) => (
+                  <LeaderboardRow
+                    key={user.id}
+                    href={`/player/${user.id}`}
+                    user={user}
+                    highlight={user.id === currentUser.id}
+                    index={index}
+                    compact
+                    showAccuracy={false}
+                  />
+                ))}
+              </div>
             </div>
           </article>
 

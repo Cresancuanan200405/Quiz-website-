@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { Flame, Coins, Menu } from "lucide-react";
 import { motion } from "framer-motion";
-import { currentUser } from "@/lib/mockData";
 import ThemeToggle from "@/components/ThemeToggle";
 import NotificationDropdown from "@/components/NotificationDropdown";
 import { useSidebarStore } from "@/lib/sidebarStore";
+import { usePlayerStatsStore } from "@/lib/playerStatsStore";
 
 interface TopBarProps {
   title: string;
@@ -15,6 +15,7 @@ interface TopBarProps {
 export default function TopBar({ title }: TopBarProps) {
   const { isCollapsed, toggleMobile } = useSidebarStore();
   const [isDesktop, setIsDesktop] = useState(false);
+  const { bestStreak, totalPoints } = usePlayerStatsStore();
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 768px)");
@@ -42,10 +43,10 @@ export default function TopBar({ title }: TopBarProps) {
           <Menu className="h-4 w-4" />
         </button>
         <span className="flex items-center gap-1 rounded-full dark:bg-amber-500/15 bg-amber-50 dark:text-amber-300 text-amber-800 dark:border-amber-400/20 border-amber-200 border px-3 py-1">
-          <Flame className="h-4 w-4" /> {currentUser.streak}
+          <Flame className="h-4 w-4" /> {bestStreak}
         </span>
         <span className="hidden items-center gap-1 rounded-full dark:bg-violet-500/15 bg-violet-50 dark:text-violet-300 text-violet-800 px-3 py-1 sm:flex">
-          <Coins className="h-4 w-4" /> {currentUser.points}
+          <Coins className="h-4 w-4" /> {totalPoints}
         </span>
         <NotificationDropdown />
         <ThemeToggle />
