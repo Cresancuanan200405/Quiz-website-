@@ -2,20 +2,49 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Swords, LoaderCircle, Image, CircleCheck, Type, Flame, BookOpen, Sparkles, Radar, Crown, Clock3, Target, AlertTriangle } from "lucide-react";
+import { Swords, LoaderCircle, Image, CircleCheck, Type, Flame, BookOpen, Sparkles, Radar, Crown, Clock3, Target, AlertTriangle, Lightbulb, ArrowRight, Flag, CircleX, Users, RefreshCw, X } from "lucide-react";
 import CategoryCard from "@/components/CategoryCard";
 import ProfilePhoto from "@/components/ProfilePhoto";
+import Timer from "@/components/Timer";
 import { categoryMeta, currentUser, leaderboardUsers, questions } from "@/lib/mockData";
 import type { BattleState } from "@/lib/types";
 import AnswerButton from "@/components/AnswerButton";
-import Timer from "@/components/Timer";
 import { useProfilePhotoStore } from "@/lib/profilePhotoStore";
 import { useProfileStore } from "@/lib/profileStore";
 import { loadBattleOpponentsFromSupabase, persistBattleSessionToSupabase } from "@/lib/supabase/battlePersistence";
+import { useSettingsStore } from "@/lib/settingsStore";
 import { cx } from "@/lib/utils";
 
 const letters = ["A", "B", "C", "D"];
 const RANDOM_CATEGORY_ID = "__random__";
+const questionCountOptions = [10, 15, 20, 25, 30] as const;
+const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+const triviaApiCategoryMap: Record<string, string | null> = {
+  Science: "science",
+  History: "history",
+  Tech: "science",
+  Nature: "geography",
+  Anime: "film_and_tv",
+  Food: "food_and_drink",
+  Animals: "science",
+  Business: "society_and_culture",
+};
+
+const categorySemanticHints: Record<string, string[]> = {
+  Science: ["laboratory", "experiment", "molecule", "physics", "astronomy", "biology"],
+  History: ["ancient", "civilization", "empire", "war", "monument", "artifact"],
+  Tech: ["computer", "circuit", "robotics", "software", "internet", "innovation"],
+  Nature: ["forest", "mountain", "ocean", "wildlife", "ecosystem", "landscape"],
+  Anime: ["animation", "manga", "character", "studio", "cosplay", "fanart"],
+  Food: ["cuisine", "dish", "ingredient", "restaurant", "chef", "cooking"],
+  Animals: ["wildlife", "species", "zoo", "habitat", "creature", "fauna"],
+  Business: ["office", "market", "finance", "startup", "leadership", "strategy"],
+};
+
+const stopWords = new Set([
+  "what", "which", "where", "when", "who", "why", "how", "does", "did", "was", "were", "is", "the", "a", "an", "of", "in", "on", "to", "for", "and", "or", "with", "from",
+]);
 
 type BattleModeId = "classic" | "pics-word" | "true-false" | "guess-word" | "rapid-fire";
 
@@ -32,11 +61,27 @@ interface PreparedBattleQuestion {
   question: string;
   options: string[];
   correctAnswer: string;
+  picsWord?: PicsWordPuzzle;
+}
+
+interface PicsWordPuzzle {
+  targetWord: string;
+  letterBank: string[];
+  imageUrls: string[];
+  clue: string;
 }
 
 interface BattleSetupResult {
   questions: PreparedBattleQuestion[];
   resolvedCategoryName: string;
+}
+
+interface TriviaApiQuestion {
+  id: string;
+  question: { text: string };
+  correctAnswer: string;
+  incorrectAnswers: string[];
+  difficulty?: string;
 }
 
 interface BattleRoundResult {
@@ -61,14 +106,7 @@ interface RoundBurst {
   opponentPoints: number;
   userMultiplier: number;
   opponentMultiplier: number;
-}
-
-interface ScoreToast {
-  id: number;
-  title: string;
-  speedBonus: number;
-  streakBonus: number;
-  totalPoints: number;
+  userHintPenalty: number;
 }
 
 interface BattleOpponent {
@@ -78,6 +116,13 @@ interface BattleOpponent {
     type: "initials" | "icon" | "image";
     value: string;
   };
+}
+
+interface QueuePlayer extends BattleOpponent {
+  id: string;
+  preferredMode: BattleModeId;
+  preferredCategory: string;
+  waitingSeconds: number;
 }
 
 const battleModes: BattleMode[] = [
@@ -132,6 +177,124 @@ const shuffleArray = <T,>(items: T[]) => {
   return copy;
 };
 
+const normalizeWord = (value: string) => value.replace(/[^a-zA-Z]/g, "").toUpperCase();
+
+const pickPuzzleWord = (correctAnswer: string, questionText: string) => {
+  const answerTokens = correctAnswer
+    .split(/[^a-zA-Z]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 4 && token.length <= 10);
+
+  if (answerTokens.length) {
+    return normalizeWord(answerTokens.sort((a, b) => b.length - a.length)[0]);
+  }
+
+  const questionTokens = questionText
+    .split(/[^a-zA-Z]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 4 && token.length <= 10);
+
+  if (questionTokens.length) {
+    return normalizeWord(questionTokens.sort((a, b) => b.length - a.length)[0]);
+  }
+
+  return "QUIZ";
+};
+
+const buildLetterBank = (targetWord: string) => {
+  const lettersNeeded = Math.max(10, Math.min(14, targetWord.length + 4));
+  const bank = targetWord.split("");
+
+  while (bank.length < lettersNeeded) {
+    bank.push(alphabet[Math.floor(Math.random() * alphabet.length)]);
+  }
+
+  return shuffleArray(bank);
+};
+
+const getSemanticTerms = (categoryName: string, clueText: string, targetWord: string) => {
+  const textTerms = clueText
+    .split(/[^a-zA-Z]+/)
+    .map((token) => token.trim().toLowerCase())
+    .filter((token) => token.length >= 4 && !stopWords.has(token));
+
+  const uniqueTerms = Array.from(new Set(textTerms));
+  const categoryTerms = categorySemanticHints[categoryName] ?? [categoryName.toLowerCase()];
+
+  const terms: string[] = [targetWord.toLowerCase()];
+  for (const token of uniqueTerms) {
+    if (terms.length >= 2) break;
+    terms.push(token);
+  }
+
+  for (const token of categoryTerms) {
+    if (terms.length >= 4) break;
+    if (!terms.includes(token)) terms.push(token);
+  }
+
+  while (terms.length < 4) {
+    terms.push(categoryName.toLowerCase());
+  }
+
+  return terms.slice(0, 4);
+};
+
+const buildPicsWordImageUrls = (targetWord: string, categoryName: string, questionText: string, answerText: string) => {
+  const semanticTerms = getSemanticTerms(categoryName, questionText, targetWord);
+  const answerTerms = answerText
+    .split(/[^a-zA-Z]+/)
+    .map((term) => term.trim().toLowerCase())
+    .filter((term) => term.length >= 4 && !stopWords.has(term));
+
+  const distinctTerms = Array.from(new Set([targetWord.toLowerCase(), ...answerTerms, ...semanticTerms])).slice(0, 6);
+  const queryVariants = [
+    `${distinctTerms[0] ?? targetWord.toLowerCase()},portrait`,
+    `${distinctTerms[1] ?? distinctTerms[0] ?? targetWord.toLowerCase()},symbol`,
+    `${distinctTerms[2] ?? distinctTerms[0] ?? targetWord.toLowerCase()},scene`,
+    `${distinctTerms[3] ?? distinctTerms[0] ?? targetWord.toLowerCase()},artifact`,
+  ];
+
+  const seed = Math.floor(Math.random() * 100000);
+  return queryVariants.map((query, idx) => {
+    const safeTags = query
+      .toLowerCase()
+      .replace(/\s+/g, ",")
+      .replace(/[^a-z,]/g, "")
+      .replace(/,+/g, ",")
+      .replace(/^,|,$/g, "");
+    return `https://loremflickr.com/640/480/${safeTags}?lock=${seed + idx}`;
+  });
+};
+
+const isSimpleQuestionText = (value: string) => {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  const wordCount = normalized.split(" ").filter(Boolean).length;
+  const hasTrickyTerms = /\b(except|least|most|incorrect|false|never|always|not)\b/i.test(normalized);
+  return wordCount <= 14 && !hasTrickyTerms;
+};
+
+const getPicsFallbackImage = (categoryName: string, index: number) => {
+  const localImages = ["/images/Quiz1.png", "/images/Quiz2.png", "/images/Quiz3.png", "/images/Quiz.jpg"];
+  const categoryOffset = categoryName.length % localImages.length;
+  return localImages[(categoryOffset + index) % localImages.length];
+};
+
+const toPicsWordQuestion = (questionText: string, correctAnswer: string, categoryName: string): PreparedBattleQuestion => {
+  const targetWord = pickPuzzleWord(correctAnswer, questionText);
+
+  return {
+    question: questionText,
+    options: [],
+    correctAnswer: targetWord,
+    picsWord: {
+      targetWord,
+      letterBank: buildLetterBank(targetWord),
+      imageUrls: buildPicsWordImageUrls(targetWord, categoryName, questionText, correctAnswer),
+      clue: questionText,
+    },
+  };
+};
+
 const getBattlePoints = (timeSpent: number, streakAfter: number, totalSeconds: number) => {
   const safeTotal = Math.max(1, totalSeconds);
   const safeTimeSpent = Math.max(0, Math.min(safeTotal, timeSpent));
@@ -153,6 +316,12 @@ const getOpponentTimeSpent = (totalSeconds: number) => {
   return Math.min(safeTotal - 1, Math.max(1, Math.floor(lower + Math.random() * (upper - lower))));
 };
 
+const formatElapsedTime = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+};
+
 const toTrueFalseQuestion = (question: PreparedBattleQuestion): PreparedBattleQuestion => {
   const incorrectOption = question.options.find((option) => option !== question.correctAnswer) ?? question.correctAnswer;
   const showsCorrectAnswer = Math.random() > 0.5;
@@ -165,7 +334,7 @@ const toTrueFalseQuestion = (question: PreparedBattleQuestion): PreparedBattleQu
   };
 };
 
-const buildBattleQuestions = (categoryName: string, modeId: BattleModeId): BattleSetupResult => {
+const buildLocalBattleQuestions = (categoryName: string, modeId: BattleModeId, amount: number): BattleSetupResult => {
   const resolvedCategoryName = categoryName === RANDOM_CATEGORY_ID
     ? categoryMeta[Math.floor(Math.random() * categoryMeta.length)]?.name
     : categoryName;
@@ -175,15 +344,27 @@ const buildBattleQuestions = (categoryName: string, modeId: BattleModeId): Battl
   if (!selectedCategory || !selectedMode) return { questions: [], resolvedCategoryName: resolvedCategoryName ?? "Random" };
 
   const categoryPool = questions.filter((question) => question.category === selectedCategory.name);
-  const fallbackPool = categoryPool.length ? categoryPool : questions;
-  const picked = shuffleArray(fallbackPool).slice(0, selectedMode.rounds);
+  const easyCategoryPool = categoryPool.filter((item) => item.difficulty === "Easy");
+  const easyGlobalPool = questions.filter((item) => item.difficulty === "Easy");
+  const simpleEasyCategoryPool = easyCategoryPool.filter((item) => isSimpleQuestionText(item.question));
+  const simpleEasyGlobalPool = easyGlobalPool.filter((item) => isSimpleQuestionText(item.question));
+  const fallbackPool =
+    simpleEasyCategoryPool.length ? simpleEasyCategoryPool :
+    simpleEasyGlobalPool.length ? simpleEasyGlobalPool :
+    easyCategoryPool.length ? easyCategoryPool :
+    easyGlobalPool.length ? easyGlobalPool :
+    categoryPool.length ? categoryPool :
+    questions;
+  const picked = shuffleArray(fallbackPool).slice(0, amount);
 
   const preparedQuestions = picked.map((question) => {
+    if (modeId === "pics-word") {
+      return toPicsWordQuestion(question.question, question.correctAnswer, selectedCategory.name);
+    }
+
     const base: PreparedBattleQuestion = {
       question:
-        modeId === "pics-word"
-          ? `4 Pics 1 Word: ${question.question}`
-          : modeId === "guess-word"
+        modeId === "guess-word"
             ? `Guess the Word: ${question.question}`
             : question.question,
       options: [...question.options],
@@ -200,13 +381,76 @@ const buildBattleQuestions = (categoryName: string, modeId: BattleModeId): Battl
   return { questions: preparedQuestions, resolvedCategoryName: selectedCategory.name };
 };
 
+const buildBattleQuestions = async (categoryName: string, modeId: BattleModeId, amount: number): Promise<BattleSetupResult> => {
+  const local = buildLocalBattleQuestions(categoryName, modeId, amount);
+  const selectedMode = battleModes.find((mode) => mode.id === modeId);
+  if (!selectedMode || !local.resolvedCategoryName) return local;
+
+  try {
+    const mapped = triviaApiCategoryMap[local.resolvedCategoryName] ?? null;
+    const params = new URLSearchParams({
+      limit: String(amount),
+      difficulties: "easy",
+    });
+
+    if (mapped) {
+      params.set("categories", mapped);
+    }
+
+    const response = await fetch(`https://the-trivia-api.com/v2/questions?${params.toString()}`, {
+      cache: "no-store",
+    });
+    if (!response.ok) return local;
+
+    const data = (await response.json()) as TriviaApiQuestion[];
+    if (!Array.isArray(data) || !data.length) return local;
+
+    const easyData = data.filter((item) => (item.difficulty ?? "easy").toLowerCase() === "easy");
+    const simpleEasyData = easyData.filter((item) => isSimpleQuestionText(item.question.text));
+    const sourceData = simpleEasyData.length ? simpleEasyData : easyData;
+    if (!sourceData.length) return local;
+
+    const onlineQuestions: PreparedBattleQuestion[] = sourceData.map((item) => {
+      if (modeId === "pics-word") {
+        return toPicsWordQuestion(item.question.text, item.correctAnswer, local.resolvedCategoryName);
+      }
+
+      const options = shuffleArray([item.correctAnswer, ...item.incorrectAnswers]).slice(0, 4);
+      const question: PreparedBattleQuestion = {
+        question:
+          modeId === "guess-word"
+              ? `Guess the Word: ${item.question.text}`
+              : item.question.text,
+        options,
+        correctAnswer: item.correctAnswer,
+      };
+
+      if (modeId === "true-false") {
+        return toTrueFalseQuestion(question);
+      }
+
+      return question;
+    });
+
+    const merged = [...onlineQuestions, ...local.questions].slice(0, amount);
+    return {
+      resolvedCategoryName: local.resolvedCategoryName,
+      questions: merged,
+    };
+  } catch {
+    return local;
+  }
+};
+
 export default function BattleArena() {
   const { photo: profilePhoto } = useProfilePhotoStore();
   const { displayName, tier } = useProfileStore();
+  const nextQuestionDelaySeconds = useSettingsStore((state) => state.nextQuestionDelaySeconds);
 
   const [state, setState] = useState<BattleState>("idle");
-  const [setupTab, setSetupTab] = useState<"mode" | "category">("mode");
+  const [setupTab, setSetupTab] = useState<"mode" | "category" | "queue">("mode");
   const [countdown, setCountdown] = useState(5);
+  const [timeLeft, setTimeLeft] = useState<number>(12);
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
@@ -221,10 +465,25 @@ export default function BattleArena() {
   const [bestOpponentStreak, setBestOpponentStreak] = useState(0);
   const [roundResults, setRoundResults] = useState<BattleRoundResult[]>([]);
   const [roundBurst, setRoundBurst] = useState<RoundBurst | null>(null);
-  const [scoreToasts, setScoreToasts] = useState<ScoreToast[]>([]);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [pendingLeaveHref, setPendingLeaveHref] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState(12);
+  const [selectedQuestionCount, setSelectedQuestionCount] = useState<number>(10);
+  const [isPreparingMatch, setIsPreparingMatch] = useState(false);
+  const [picsSelectedIndices, setPicsSelectedIndices] = useState<number[]>([]);
+  const [picsShake, setPicsShake] = useState(false);
+  const [usedHintIndices, setUsedHintIndices] = useState<number[]>([]);
+  const [currentHintPenalty, setCurrentHintPenalty] = useState(0);
+  const [pendingHintDebt, setPendingHintDebt] = useState(0);
+  const [matchElapsedSeconds, setMatchElapsedSeconds] = useState(0);
+  const [answeredRoundMap, setAnsweredRoundMap] = useState<Record<number, { answer: string | null; correct: boolean }>>({});
+  const [roundNotification, setRoundNotification] = useState<{ title: string; body: string } | null>(null);
+  const [zoomedImage, setZoomedImage] = useState<{ url: string; alt: string } | null>(null);
+  const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
+  const [hasSurrendered, setHasSurrendered] = useState(false);
+  const [queuePlayers, setQueuePlayers] = useState<QueuePlayer[]>([]);
+  const [isQueueLoading, setIsQueueLoading] = useState(false);
+  const [selectedQueuePlayer, setSelectedQueuePlayer] = useState<QueuePlayer | null>(null);
+  const [queuedOpponentOverride, setQueuedOpponentOverride] = useState<BattleOpponent | null>(null);
   const [selectedMode, setSelectedMode] = useState<BattleModeId | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [resolvedCategoryName, setResolvedCategoryName] = useState<string | null>(null);
@@ -237,9 +496,9 @@ export default function BattleArena() {
 
   const persistedBattleKeyRef = useRef<string | null>(null);
   const roundResultIdRef = useRef(1);
-  const scoreToastIdRef = useRef(1);
   const arenaRef = useRef<HTMLElement | null>(null);
   const forfeitRecordedRef = useRef(false);
+  const roundStartedAtRef = useRef<number | null>(null);
 
   const activeMode = useMemo(
     () => battleModes.find((mode) => mode.id === selectedMode) ?? null,
@@ -252,6 +511,26 @@ export default function BattleArena() {
   const isBattleOngoing = state === "searching" || state === "found" || state === "countdown" || state === "playing";
 
   const question = battleQuestions[index];
+  const currentPicsPuzzle = activeMode?.id === "pics-word" ? question?.picsWord ?? null : null;
+
+  const picsPickedLetters = useMemo(
+    () => currentPicsPuzzle ? picsSelectedIndices.map((idx) => currentPicsPuzzle.letterBank[idx]) : [],
+    [currentPicsPuzzle, picsSelectedIndices]
+  );
+
+  const picsComposedAnswer = useMemo(() => picsPickedLetters.join(""), [picsPickedLetters]);
+  const answeredRound = answeredRoundMap[index];
+  const displayedPicsLetters = useMemo(
+    () => (revealed && currentPicsPuzzle ? currentPicsPuzzle.targetWord.split("") : picsPickedLetters),
+    [currentPicsPuzzle, picsPickedLetters, revealed]
+  );
+  const isPicsWordMode = activeMode?.id === "pics-word";
+
+  const toBattleOpponent = useCallback((player: QueuePlayer): BattleOpponent => ({
+    username: player.username,
+    rank: player.rank,
+    photo: player.photo,
+  }), []);
 
   const battleSummary = useMemo(() => {
     const totalRounds = roundResults.length || 1;
@@ -312,6 +591,42 @@ export default function BattleArena() {
     };
   }, [pickFallbackOpponent]);
 
+  const loadQueuePlayers = useCallback(async () => {
+    setIsQueueLoading(true);
+    try {
+      const supabaseOpponents = await loadBattleOpponentsFromSupabase();
+      const normalizedSource: Array<{ id: string; username: string; tier: string; photo: BattleOpponent["photo"] }> = supabaseOpponents.length
+        ? supabaseOpponents
+            .map((player) => ({
+              id: player.profileKey,
+              username: player.username,
+              tier: player.tier,
+              photo: player.photo,
+            }))
+        : leaderboardUsers.filter((user) => user.id !== currentUser.id).map((user) => ({
+            id: user.id,
+            username: user.username,
+            tier: user.tier,
+            photo: { type: "initials" as const, value: user.avatar },
+          }));
+
+      const shuffled = shuffleArray(normalizedSource).slice(0, 8);
+      const queued = shuffled.map((player, idx) => ({
+        id: player.id,
+        username: player.username,
+        rank: player.tier,
+        photo: player.photo,
+        preferredMode: battleModes[(idx + 1) % battleModes.length].id,
+        preferredCategory: categoryMeta[idx % categoryMeta.length]?.name ?? "Science",
+        waitingSeconds: 6 + ((idx + 2) * 9),
+      }));
+
+      setQueuePlayers(queued);
+    } finally {
+      setIsQueueLoading(false);
+    }
+  }, []);
+
   const persistForfeitResult = useCallback(() => {
     if (forfeitRecordedRef.current || !selectedMode) return;
     forfeitRecordedRef.current = true;
@@ -356,16 +671,31 @@ export default function BattleArena() {
     setRevealed(false);
     setResolvingRound(false);
     setRoundBurst(null);
-    setTimeLeft(activeMode?.secondsPerRound ?? 12);
-  }, [activeMode?.secondsPerRound, battleQuestions.length, index]);
+    setUsedHintIndices([]);
+    setCurrentHintPenalty(0);
+    roundStartedAtRef.current = Date.now();
+  }, [battleQuestions.length, index]);
+
+  const jumpToRound = useCallback((roundIndex: number) => {
+    setIndex(Math.max(0, Math.min(roundIndex, Math.max(0, battleQuestions.length - 1))));
+  }, [battleQuestions.length]);
 
   const finishBattle = useCallback(() => {
     setState("finished");
   }, []);
 
+  const surrenderBattle = useCallback(() => {
+    if (state !== "playing") return;
+    setShowSurrenderConfirm(false);
+    setHasSurrendered(true);
+    persistForfeitResult();
+    setOpponentScore((score) => Math.max(score, youScore + 120));
+    setState("finished");
+  }, [persistForfeitResult, state, youScore]);
+
   const resolveRound = useCallback(
-    (userAnswer: string | null, userTimeSpent: number, timedOut = false) => {
-      if (!question || resolvingRound) return;
+    (userAnswer: string | null, userTimeSpent: number) => {
+      if (!question || resolvingRound || answeredRoundMap[index]) return;
 
       const totalSeconds = activeMode?.secondsPerRound ?? 12;
       const userCorrect = userAnswer === question.correctAnswer;
@@ -373,7 +703,8 @@ export default function BattleArena() {
       const userCalc = userCorrect
         ? getBattlePoints(userTimeSpent, nextYouStreak, totalSeconds)
         : { points: 0, speedScore: 0, streakMultiplier: 1 };
-      const userPoints = userCalc.points;
+      const appliedPenalty = userCorrect ? Math.min(userCalc.points, pendingHintDebt) : 0;
+      const userPoints = userCorrect ? Math.max(0, userCalc.points - appliedPenalty) : 0;
 
       const opponentCorrect = Math.random() > 0.35;
       const opponentTimeSpent = opponentCorrect ? getOpponentTimeSpent(totalSeconds) : totalSeconds;
@@ -390,29 +721,13 @@ export default function BattleArena() {
         opponentPoints,
         userMultiplier: userCalc.streakMultiplier,
         opponentMultiplier: opponentCalc.streakMultiplier,
+        userHintPenalty: appliedPenalty,
       });
-
-      if (userCorrect) {
-        const basePlusSpeed = 100 + userCalc.speedScore;
-        const streakBonus = Math.max(0, userPoints - basePlusSpeed);
-        const toastId = scoreToastIdRef.current;
-        scoreToastIdRef.current += 1;
-
-        setScoreToasts((toasts) => [
-          ...toasts,
-          {
-            id: toastId,
-            title: `Round ${index + 1} Score Breakdown`,
-            speedBonus: userCalc.speedScore,
-            streakBonus,
-            totalPoints: userPoints,
-          },
-        ]);
-
-        window.setTimeout(() => {
-          setScoreToasts((toasts) => toasts.filter((toast) => toast.id !== toastId));
-        }, 2200);
-      }
+      setAnsweredRoundMap((prev) => ({
+        ...prev,
+        [index]: { answer: userAnswer, correct: userCorrect },
+      }));
+      setPendingHintDebt(userCorrect ? pendingHintDebt - appliedPenalty : pendingHintDebt);
 
       setYouScore((score) => score + userPoints);
       setOpponentScore((score) => score + opponentPoints);
@@ -441,18 +756,70 @@ export default function BattleArena() {
           opponentStreakAfter: nextOpponentStreak,
         },
       ]);
+      setResolvingRound(false);
 
-      const shouldAdvance = index < battleQuestions.length - 1;
-      setTimeout(() => {
-        if (shouldAdvance) {
+      setRoundNotification({
+        title: userCorrect ? "Correct Answer" : "Incorrect Answer",
+        body: index >= battleQuestions.length - 1
+          ? "Final round completed."
+          : userCorrect
+            ? "Nice work! Moving to the next round..."
+            : "Moving to the next question...",
+      });
+
+      const shouldAutoAdvance = activeMode?.id !== "pics-word" || userCorrect;
+      if (shouldAutoAdvance) {
+        const nextDelayMs = Math.max(1, nextQuestionDelaySeconds) * 1000;
+        setTimeout(() => {
+          if (index >= battleQuestions.length - 1) {
+            setState("finished");
+            return;
+          }
           advanceRound();
-          return;
-        }
-        finishBattle();
-      }, timedOut ? 500 : 650);
+        }, nextDelayMs);
+      }
     },
-    [activeMode?.secondsPerRound, advanceRound, battleQuestions.length, finishBattle, index, opponentStreak, question, resolvingRound, youStreak]
+    [
+      activeMode?.secondsPerRound,
+      advanceRound,
+      answeredRoundMap,
+      battleQuestions.length,
+      index,
+      opponentStreak,
+      pendingHintDebt,
+      question,
+      resolvingRound,
+      activeMode?.id,
+      nextQuestionDelaySeconds,
+      youStreak,
+    ]
   );
+
+  useEffect(() => {
+    if (!roundNotification) return;
+    const timer = setTimeout(() => setRoundNotification(null), 1200);
+    return () => clearTimeout(timer);
+  }, [roundNotification]);
+
+  useEffect(() => {
+    if (state !== "playing") return;
+
+    const answeredRound = answeredRoundMap[index];
+    if (answeredRound) {
+      setSelected(answeredRound.answer);
+      setRevealed(true);
+    } else {
+      setSelected(null);
+      setRevealed(false);
+    }
+
+    setResolvingRound(false);
+    setRoundBurst(null);
+    setUsedHintIndices([]);
+    setCurrentHintPenalty(0);
+    setPicsSelectedIndices([]);
+    roundStartedAtRef.current = Date.now();
+  }, [answeredRoundMap, index, state]);
 
   useEffect(() => {
     if (!isBattleOngoing) return;
@@ -508,6 +875,8 @@ export default function BattleArena() {
         if (prev <= 1) {
           clearInterval(interval);
           setState("playing");
+          roundStartedAtRef.current = Date.now();
+          setMatchElapsedSeconds(0);
           setTimeLeft(activeMode?.secondsPerRound ?? 12);
           return 0;
         }
@@ -518,51 +887,96 @@ export default function BattleArena() {
   }, [activeMode?.secondsPerRound, state]);
 
   useEffect(() => {
-    if (state !== "playing" || revealed || resolvingRound || !battleQuestions.length) return;
+    if (state !== "playing") return;
     const interval = setInterval(() => {
-      setTimeLeft((t) => {
-        if (t <= 1) {
-          clearInterval(interval);
-          setTimeout(() => resolveRound(null, activeMode?.secondsPerRound ?? 12, true), 0);
-          return 0;
-        }
-        return t - 1;
-      });
+      setMatchElapsedSeconds((seconds) => seconds + 1);
     }, 1000);
     return () => clearInterval(interval);
-  }, [activeMode?.secondsPerRound, battleQuestions.length, revealed, resolveRound, resolvingRound, state]);
+  }, [state]);
 
-  const startSearch = () => {
+  useEffect(() => {
+    if (setupTab !== "queue" || state !== "idle") return;
+    void loadQueuePlayers();
+  }, [loadQueuePlayers, setupTab, state]);
+
+  useEffect(() => {
+    if (setupTab !== "queue" || state !== "idle" || !queuePlayers.length) return;
+    const interval = setInterval(() => {
+      setQueuePlayers((current) => current.map((player) => ({ ...player, waitingSeconds: player.waitingSeconds + 1 })));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [queuePlayers.length, setupTab, state]);
+
+  useEffect(() => {
+    if (state !== "playing" || isPicsWordMode || revealed || resolvingRound) return;
+    const interval = setInterval(() => {
+      setTimeLeft((current) => {
+        if (current <= 1) {
+          clearInterval(interval);
+          const totalSeconds = activeMode?.secondsPerRound ?? 12;
+          resolveRound(null, totalSeconds);
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [activeMode?.secondsPerRound, isPicsWordMode, resolveRound, resolvingRound, revealed, state]);
+
+  useEffect(() => {
+    if (state !== "playing" || isPicsWordMode) return;
+    setTimeLeft(activeMode?.secondsPerRound ?? 12);
+  }, [activeMode?.secondsPerRound, index, isPicsWordMode, state]);
+
+  const startSearch = async () => {
     if (!selectedMode || !selectedCategory) return;
-    const prepared = buildBattleQuestions(selectedCategory, selectedMode);
-    if (!prepared.questions.length) return;
+    setIsPreparingMatch(true);
 
-    const mode = battleModes.find((item) => item.id === selectedMode);
+    try {
+      const prepared = await buildBattleQuestions(selectedCategory, selectedMode, selectedQuestionCount);
+      if (!prepared.questions.length) return;
 
-    setBattleQuestions(prepared.questions);
-    setResolvedCategoryName(prepared.resolvedCategoryName);
-    setState("searching");
-    setIndex(0);
-    setSelected(null);
-    setRevealed(false);
-    setResolvingRound(false);
-    setYouScore(0);
-    setOpponentScore(0);
-    setYouCorrectCount(0);
-    setOpponentCorrectCount(0);
-    setYouStreak(0);
-    setOpponentStreak(0);
-    setBestYouStreak(0);
-    setBestOpponentStreak(0);
-    setRoundResults([]);
-    setRoundBurst(null);
-    setScoreToasts([]);
-    setShowLeaveConfirm(false);
-    setPendingLeaveHref(null);
-    forfeitRecordedRef.current = false;
-    setTimeLeft(mode?.secondsPerRound ?? 12);
-    setCountdown(5);
-    void pickOpponent().then((opponent) => setMatchedOpponent(opponent));
+      setBattleQuestions(prepared.questions);
+      setResolvedCategoryName(prepared.resolvedCategoryName);
+      setState("searching");
+      setIndex(0);
+      setSelected(null);
+      setRevealed(false);
+      setResolvingRound(false);
+      setYouScore(0);
+      setOpponentScore(0);
+      setYouCorrectCount(0);
+      setOpponentCorrectCount(0);
+      setYouStreak(0);
+      setOpponentStreak(0);
+      setBestYouStreak(0);
+      setBestOpponentStreak(0);
+      setRoundResults([]);
+      setRoundBurst(null);
+      setUsedHintIndices([]);
+      setCurrentHintPenalty(0);
+      setPendingHintDebt(0);
+      setAnsweredRoundMap({});
+      setShowSurrenderConfirm(false);
+      setHasSurrendered(false);
+      setShowLeaveConfirm(false);
+      setPendingLeaveHref(null);
+      forfeitRecordedRef.current = false;
+      setRoundNotification(null);
+      setZoomedImage(null);
+      setSelectedQueuePlayer(null);
+      setMatchElapsedSeconds(0);
+      setTimeLeft(activeMode?.secondsPerRound ?? 12);
+      setCountdown(5);
+      if (queuedOpponentOverride) {
+        setMatchedOpponent(queuedOpponentOverride);
+      } else {
+        void pickOpponent().then((opponent) => setMatchedOpponent(opponent));
+      }
+    } finally {
+      setIsPreparingMatch(false);
+    }
   };
 
   const resetToSetup = () => {
@@ -582,10 +996,22 @@ export default function BattleArena() {
     setBestOpponentStreak(0);
     setRoundResults([]);
     setRoundBurst(null);
-    setScoreToasts([]);
+    setUsedHintIndices([]);
+    setCurrentHintPenalty(0);
+    setPendingHintDebt(0);
+    setAnsweredRoundMap({});
+    setShowSurrenderConfirm(false);
+    setHasSurrendered(false);
     setResolvedCategoryName(null);
+    setMatchElapsedSeconds(0);
+    setTimeLeft(activeMode?.secondsPerRound ?? 12);
+    setIsPreparingMatch(false);
     setShowLeaveConfirm(false);
     setPendingLeaveHref(null);
+    setRoundNotification(null);
+    setZoomedImage(null);
+    setSelectedQueuePlayer(null);
+    setQueuedOpponentOverride(null);
     forfeitRecordedRef.current = false;
   };
 
@@ -609,13 +1035,139 @@ export default function BattleArena() {
   }, [battleCategoryLabel, battleQuestions.length, matchedOpponent.username, opponentScore, selectedCategory, selectedCategoryLabel, selectedMode, state, youScore]);
 
   const chooseAnswer = (value: string) => {
-    if (revealed || state !== "playing" || !question) return;
+    if (revealed || state !== "playing" || !question || answeredRoundMap[index]) return;
     setSelected(value);
     setResolvingRound(true);
-    const totalSeconds = activeMode?.secondsPerRound ?? 12;
-    const userTimeSpent = Math.max(0, totalSeconds - timeLeft);
-    setTimeout(() => resolveRound(value, userTimeSpent, false), 450);
+    const userTimeSpent = roundStartedAtRef.current ? Math.max(0, Math.round((Date.now() - roundStartedAtRef.current) / 1000)) : 0;
+    setTimeout(() => resolveRound(value, userTimeSpent), 450);
   };
+
+  const usePicsHint = () => {
+    if (!currentPicsPuzzle || state !== "playing" || revealed || resolvingRound) return;
+    const targetChars = currentPicsPuzzle.targetWord.split("");
+
+    const candidateSlots = targetChars
+      .map((char, slotIndex) => ({ char, slotIndex }))
+      .filter(({ slotIndex, char }) => {
+        const currentChar = picsPickedLetters[slotIndex] ?? null;
+        return currentChar !== char;
+      });
+
+    if (!candidateSlots.length) return;
+
+    const selectedSlot = candidateSlots[Math.floor(Math.random() * candidateSlots.length)];
+    const bankIndex = currentPicsPuzzle.letterBank.findIndex(
+      (char, idx) => char === selectedSlot.char && !picsSelectedIndices.includes(idx) && !usedHintIndices.includes(idx)
+    );
+
+    if (bankIndex < 0) return;
+
+    const nextSelection = [...picsSelectedIndices];
+    if (selectedSlot.slotIndex >= nextSelection.length) {
+      while (nextSelection.length < selectedSlot.slotIndex) {
+        const filler = currentPicsPuzzle.letterBank.findIndex((_, idx) => !nextSelection.includes(idx) && idx !== bankIndex);
+        if (filler < 0) break;
+        nextSelection.push(filler);
+      }
+      nextSelection.push(bankIndex);
+    } else {
+      nextSelection[selectedSlot.slotIndex] = bankIndex;
+    }
+
+    setPicsSelectedIndices(nextSelection.slice(0, currentPicsPuzzle.targetWord.length));
+    setUsedHintIndices((prev) => [...prev, bankIndex]);
+    setCurrentHintPenalty((value) => value + 25);
+
+    const hintCost = 25;
+    const immediateDeduction = Math.min(hintCost, youScore);
+    if (immediateDeduction > 0) {
+      setYouScore((score) => score - immediateDeduction);
+    }
+    if (immediateDeduction < hintCost) {
+      setPendingHintDebt((value) => value + (hintCost - immediateDeduction));
+    }
+
+    setRoundNotification({
+      title: "Hint Used",
+      body: immediateDeduction < hintCost
+        ? `-${immediateDeduction} now, -${hintCost - immediateDeduction} pending.`
+        : "-25 points applied.",
+    });
+  };
+
+  const addPicsLetter = (indexInBank: number) => {
+    if (!currentPicsPuzzle || state !== "playing" || revealed || resolvingRound) return;
+    if (picsSelectedIndices.includes(indexInBank)) return;
+    if (picsSelectedIndices.length >= currentPicsPuzzle.targetWord.length) return;
+
+    setPicsSelectedIndices((prev) => [...prev, indexInBank]);
+  };
+
+  const removePicsLetterAt = (slotIndex: number) => {
+    if (state !== "playing" || revealed || resolvingRound) return;
+    setPicsSelectedIndices((prev) => prev.filter((_, indexInSelection) => indexInSelection !== slotIndex));
+  };
+
+  const clearPicsSelection = () => {
+    if (state !== "playing" || revealed || resolvingRound) return;
+    setPicsSelectedIndices([]);
+  };
+
+  useEffect(() => {
+    setPicsSelectedIndices([]);
+    setPicsShake(false);
+  }, [index, state]);
+
+  useEffect(() => {
+    if (!currentPicsPuzzle || state !== "playing" || revealed || resolvingRound) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Backspace") {
+        event.preventDefault();
+        setPicsSelectedIndices((prev) => prev.slice(0, -1));
+        return;
+      }
+
+      if (event.key.length !== 1 || !/[a-z]/i.test(event.key)) return;
+
+      const typed = event.key.toUpperCase();
+      const bankIndex = currentPicsPuzzle.letterBank.findIndex(
+        (char, idx) => char === typed && !picsSelectedIndices.includes(idx)
+      );
+
+      if (bankIndex < 0) return;
+      if (picsSelectedIndices.length >= currentPicsPuzzle.targetWord.length) return;
+
+      event.preventDefault();
+      setPicsSelectedIndices((prev) => [...prev, bankIndex]);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [currentPicsPuzzle, picsSelectedIndices, resolvingRound, revealed, state]);
+
+  useEffect(() => {
+    if (!currentPicsPuzzle || state !== "playing" || revealed || resolvingRound) return;
+    if (picsComposedAnswer.length !== currentPicsPuzzle.targetWord.length) return;
+
+    const userTimeSpent = roundStartedAtRef.current
+      ? Math.max(0, Math.round((Date.now() - roundStartedAtRef.current) / 1000))
+      : 0;
+
+    if (picsComposedAnswer === currentPicsPuzzle.targetWord) {
+      setResolvingRound(true);
+      setTimeout(() => resolveRound(picsComposedAnswer, userTimeSpent), 300);
+      return;
+    }
+
+    setPicsShake(true);
+    const timer = setTimeout(() => {
+      setPicsSelectedIndices([]);
+      setPicsShake(false);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [currentPicsPuzzle, picsComposedAnswer, resolveRound, resolvingRound, revealed, state]);
 
   return (
     <section ref={arenaRef} className="quiz-shell relative overflow-hidden rounded-[28px] border border-black/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.7),rgba(255,255,255,0.42))] p-4 shadow-[0_24px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-white/10 dark:bg-[linear-gradient(145deg,rgba(15,23,42,0.72),rgba(15,23,42,0.45))] dark:shadow-[0_26px_68px_rgba(2,8,25,0.52)] sm:p-6">
@@ -643,11 +1195,15 @@ export default function BattleArena() {
                   <p className="text-[var(--text-muted)]">Category</p>
                   <p className="font-semibold text-[var(--text-primary)]">{selectedCategoryLabel ?? "Not selected"}</p>
                 </div>
+                <div className="rounded-card border border-black/10 bg-black/5 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[var(--text-muted)]">Questions</p>
+                  <p className="font-semibold text-[var(--text-primary)]">{selectedQuestionCount}</p>
+                </div>
               </div>
             </div>
 
             <div className="space-y-4 rounded-[22px] border border-black/10 bg-white/55 p-4 backdrop-blur dark:border-white/10 dark:bg-slate-900/42">
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
                 <button
                   type="button"
                   aria-label="Mode setup tab"
@@ -675,6 +1231,20 @@ export default function BattleArena() {
                   )}
                 >
                   2. Choose Category
+                </button>
+                <button
+                  type="button"
+                  aria-label="Open player queue tab"
+                  onClick={() => setSetupTab("queue")}
+                  className={cx(
+                    "focus-ring rounded-button border px-3 py-2 text-sm font-semibold",
+                    setupTab === "queue"
+                      ? "border-cyan-400/45 bg-cyan-500/12 text-cyan-100"
+                      : "border-black/10 bg-white/50 text-[var(--text-secondary)] dark:border-white/10 dark:bg-white/5"
+                  )}
+                  title="Player Queue"
+                >
+                  <Users className="h-4 w-4" />
                 </button>
               </div>
 
@@ -715,11 +1285,31 @@ export default function BattleArena() {
                     );
                   })}
                 </div>
-              ) : (
+              ) : setupTab === "category" ? (
                 <div className="space-y-3">
                   <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)]">
                     <Sparkles className="h-4 w-4 text-cyan-500" /> {activeMode?.label ?? "Selected mode"} • Choose category
                   </p>
+                  <div className="rounded-[16px] border border-black/10 bg-black/5 p-3 dark:border-white/10 dark:bg-white/5">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Question Count</p>
+                    <div className="flex flex-wrap gap-2">
+                      {questionCountOptions.map((count) => (
+                        <button
+                          key={count}
+                          type="button"
+                          onClick={() => setSelectedQuestionCount(count)}
+                          className={cx(
+                            "focus-ring arcade-btn rounded-full border px-3 py-1.5 text-xs font-semibold",
+                            selectedQuestionCount === count
+                              ? "border-cyan-400/45 bg-cyan-500/14 text-cyan-100"
+                              : "border-black/10 bg-white/55 text-[var(--text-secondary)] dark:border-white/10 dark:bg-white/5"
+                          )}
+                        >
+                          {count}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     <button
                       type="button"
@@ -758,6 +1348,62 @@ export default function BattleArena() {
                     ))}
                   </div>
                 </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)]">
+                      <Users className="h-4 w-4 text-cyan-400" /> Live Match Queue
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void loadQueuePlayers()}
+                      className="focus-ring arcade-btn rounded-full border border-cyan-400/35 bg-cyan-500/12 px-2.5 py-1.5 text-xs text-cyan-100"
+                      aria-label="Refresh queue"
+                      title="Refresh queue"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="rounded-[16px] border border-black/10 bg-black/5 p-3 dark:border-white/10 dark:bg-white/5">
+                    {isQueueLoading ? (
+                      <div className="grid place-items-center py-8 text-sm text-[var(--text-secondary)]">
+                        <LoaderCircle className="mb-2 h-5 w-5 animate-spin text-cyan-300" /> Loading players in queue...
+                      </div>
+                    ) : queuePlayers.length ? (
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        {queuePlayers.map((player) => (
+                          <button
+                            key={player.id}
+                            type="button"
+                            onClick={() => setSelectedQueuePlayer(player)}
+                            className="focus-ring group relative overflow-hidden text-left rounded-[18px] border border-cyan-400/25 bg-[linear-gradient(155deg,rgba(14,165,233,0.18),rgba(30,64,175,0.12)_45%,rgba(15,23,42,0.2))] p-3.5 shadow-[0_10px_26px_rgba(8,47,73,0.2)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:border-cyan-300/55 hover:shadow-[0_16px_34px_rgba(8,47,73,0.32)]"
+                          >
+                            <span className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-cyan-300/20 blur-2xl transition group-hover:bg-cyan-300/30" />
+                            <span className="pointer-events-none absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
+                            <div className="flex items-center gap-2">
+                              <ProfilePhoto photo={player.photo} fallbackText={player.username} className="h-10 w-10 border-cyan-400/45" />
+                              <div className="min-w-0">
+                                <p className="truncate font-sora text-base font-semibold text-[var(--text-primary)]">{player.username}</p>
+                                <p className="text-xs font-semibold text-cyan-100/85">{player.rank}</p>
+                              </div>
+                            </div>
+                            <div className="mt-2 grid gap-1 text-[11px] text-[var(--text-secondary)]">
+                              <p>Mode: {battleModes.find((mode) => mode.id === player.preferredMode)?.label ?? "Classic Quiz"}</p>
+                              <p>Category: {player.preferredCategory}</p>
+                              <p className="inline-flex items-center gap-1 font-semibold text-cyan-100/90"><Clock3 className="h-3 w-3" /> Waiting: {player.waitingSeconds}s</p>
+                            </div>
+                            <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-100/95">Tap to challenge</p>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="grid place-items-center py-8 text-sm text-[var(--text-secondary)]">
+                        No players are currently waiting. Try refreshing.
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
 
               <div className="grid gap-4 rounded-[18px] border border-black/10 bg-black/5 p-3 dark:border-white/10 dark:bg-white/5 sm:grid-cols-[1fr_auto] sm:items-center">
@@ -779,14 +1425,14 @@ export default function BattleArena() {
                 <button
                   type="button"
                   aria-label="Find opponent"
-                  onClick={startSearch}
-                  disabled={!selectedMode || !selectedCategory}
+                  onClick={() => void startSearch()}
+                  disabled={!selectedMode || !selectedCategory || isPreparingMatch}
                   className={cx(
                     "focus-ring arcade-btn btn-success inline-flex w-full items-center justify-center gap-2 rounded-button px-5 py-3 text-sm font-semibold sm:w-auto",
-                    (!selectedMode || !selectedCategory) && "cursor-not-allowed opacity-55"
+                    (!selectedMode || !selectedCategory || isPreparingMatch) && "cursor-not-allowed opacity-55"
                   )}
                 >
-                  <Swords className="h-4 w-4" /> Find Opponent
+                  <Swords className="h-4 w-4" /> {isPreparingMatch ? "Loading Questions..." : `Find Opponent (${selectedQuestionCount} Q)`}
                 </button>
               </div>
             </div>
@@ -849,7 +1495,7 @@ export default function BattleArena() {
             </p>
             <div className="mt-5 flex justify-center">
               <div className="glass inline-flex items-center gap-3 rounded-full border border-cyan-400/25 bg-cyan-500/10 px-4 py-2 text-sm text-[var(--text-primary)]">
-                <span className="font-semibold text-cyan-200">Auto-start</span>
+                <span className="font-semibold text-cyan-200"></span>
                 <span className="text-[var(--text-secondary)]">Match begins in {countdown}s</span>
               </div>
             </div>
@@ -870,17 +1516,76 @@ export default function BattleArena() {
               const maxBattlePoints = Math.max(1, battleQuestions.length * 250);
 
               return (
-            <div className="quiz-meta mb-3 grid gap-3 sm:grid-cols-[1fr_56px_1fr] sm:items-center">
+            <div className={cx("quiz-meta mb-3 grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center", !isPicsWordMode && "hidden")}>
               <div className="rounded-full bg-black/5 p-1 dark:bg-white/8">
                 <div className="h-2 rounded-full bg-violet-400" style={{ width: `${(youScore / maxBattlePoints) * 100}%` }} />
               </div>
-              <Timer timeLeft={timeLeft} total={activeMode?.secondsPerRound ?? 12} />
+              <div className="grid h-12 min-w-[74px] place-items-center rounded-full border border-cyan-400/25 bg-cyan-500/10 px-3 text-[11px] font-semibold text-cyan-100">
+                {formatElapsedTime(matchElapsedSeconds)}
+              </div>
               <div className="rounded-full bg-black/5 p-1 dark:bg-white/8">
                 <div className="ml-auto h-2 rounded-full bg-orange-400" style={{ width: `${(opponentScore / maxBattlePoints) * 100}%` }} />
               </div>
             </div>
               );
             })()}
+
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-[14px] border border-black/10 bg-black/5 p-2.5 dark:border-white/10 dark:bg-white/5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {battleQuestions.map((_, roundIndex) => {
+                  const answered = answeredRoundMap[roundIndex];
+                  const isActive = roundIndex === index;
+                  return (
+                    <div key={`round-strip-${roundIndex + 1}`} className="grid justify-items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => jumpToRound(roundIndex)}
+                        className={cx(
+                          "focus-ring arcade-btn h-8 min-w-8 rounded-full border px-2 text-xs font-semibold",
+                          isActive
+                            ? "border-violet-400/50 bg-violet-500/16 text-violet-100"
+                            : answered
+                              ? answered.correct
+                                ? "border-emerald-400/40 bg-emerald-500/12 text-emerald-100"
+                                : "border-rose-400/40 bg-rose-500/12 text-rose-100"
+                              : "border-white/15 bg-white/8 text-[var(--text-secondary)]"
+                        )}
+                        aria-label={`Go to round ${roundIndex + 1}`}
+                        title={`Round ${roundIndex + 1}`}
+                      >
+                        {roundIndex + 1}
+                      </button>
+                      <span className="grid h-3.5 w-3.5 place-items-center text-[10px] text-[var(--text-muted)]">
+                        {!answered ? (
+                          <span>•</span>
+                        ) : answered.correct ? (
+                          <CircleCheck className="h-3.5 w-3.5 text-emerald-300" />
+                        ) : (
+                          <CircleX className="h-3.5 w-3.5 text-rose-300" />
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSurrenderConfirm(true)}
+                className="focus-ring arcade-btn grid h-9 w-9 place-items-center rounded-full border border-rose-400/40 bg-rose-500/12 text-rose-100"
+                aria-label="Surrender match"
+                title="Surrender"
+              >
+                <Flag className="h-4 w-4" />
+              </button>
+            </div>
+
+            {!isPicsWordMode ? (
+              <div className="mb-3 flex justify-center">
+                <div className="rounded-full border border-cyan-400/25 bg-cyan-500/10 px-3 py-1.5">
+                  <Timer timeLeft={timeLeft} total={activeMode?.secondsPerRound ?? 12} />
+                </div>
+              </div>
+            ) : null}
 
             <div className="mb-3 grid gap-2 sm:grid-cols-2">
               <div className="relative overflow-hidden rounded-[16px] border border-violet-400/25 bg-gradient-to-br from-violet-500/14 via-violet-500/8 to-transparent p-3 text-left">
@@ -969,43 +1674,153 @@ export default function BattleArena() {
             <div className="quiz-question glass mb-3 rounded-card p-4 text-center">
               <p className="mb-2 text-xs text-violet-700 dark:text-violet-200">Round {index + 1} / {battleQuestions.length}</p>
               <p className="font-sora text-[1.5rem] font-semibold text-[var(--text-primary)] sm:text-[1.7rem]">{question.question}</p>
+              {answeredRound ? (
+                <p className="mt-2 inline-flex items-center gap-1 rounded-full border border-emerald-400/35 bg-emerald-500/12 px-2.5 py-1 text-[11px] font-semibold text-emerald-100">
+                  <CircleCheck className="h-3.5 w-3.5" /> Round already answered
+                </p>
+              ) : null}
             </div>
 
-            <div className={cx("quiz-options grid gap-2.5", question.options.length > 2 ? "sm:grid-cols-2" : "sm:grid-cols-1 sm:max-w-md sm:mx-auto")}>
-              {question.options.map((opt, i) => (
-                <AnswerButton
-                  key={opt}
-                  label={letters[i]}
-                  value={opt}
-                  selected={selected === opt}
-                  revealed={revealed}
-                  isCorrect={question.correctAnswer === opt}
-                  onClick={() => chooseAnswer(opt)}
-                />
-              ))}
-            </div>
-
-            <div className="pointer-events-none absolute right-3 top-2 z-20 flex max-w-[320px] flex-col gap-2">
-              <AnimatePresence>
-                {scoreToasts.map((toast) => (
-                  <motion.article
-                    key={toast.id}
-                    initial={{ opacity: 0, x: 20, y: -6, scale: 0.96 }}
-                    animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, x: 16, y: -14, scale: 0.95 }}
-                    transition={{ duration: 0.22, ease: "easeOut" }}
-                    className="rounded-[14px] border border-emerald-400/35 bg-emerald-500/14 p-3 shadow-[0_10px_24px_rgba(16,185,129,0.25)] backdrop-blur"
-                  >
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-100">{toast.title}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-emerald-50">
-                      <span className="rounded-full border border-emerald-200/35 bg-emerald-200/14 px-2 py-0.5">Speed +{toast.speedBonus}</span>
-                      <span className="rounded-full border border-emerald-200/35 bg-emerald-200/14 px-2 py-0.5">Streak +{toast.streakBonus}</span>
-                      <span className="rounded-full border border-white/25 bg-white/10 px-2 py-0.5 font-semibold">Total +{toast.totalPoints}</span>
+            {activeMode?.id === "pics-word" && currentPicsPuzzle ? (
+              <div className="space-y-3">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {currentPicsPuzzle.imageUrls.map((url, idx) => (
+                    <div key={`${url}-${idx}`} className="overflow-hidden rounded-[14px] border border-black/10 bg-black/5 dark:border-white/10 dark:bg-white/5">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={url}
+                        alt={`Picture clue ${idx + 1}`}
+                        className="h-28 w-full cursor-zoom-in object-cover sm:h-36"
+                        loading="lazy"
+                        onError={(event) => {
+                          event.currentTarget.src = getPicsFallbackImage(resolvedCategoryName ?? activeCategory?.name ?? "quiz", idx);
+                        }}
+                        onClick={() => setZoomedImage({ url, alt: `Picture clue ${idx + 1}` })}
+                      />
                     </div>
-                  </motion.article>
+                  ))}
+                </div>
+
+                <motion.div
+                  animate={picsShake ? { x: [0, -8, 8, -5, 5, 0] } : { x: 0 }}
+                  transition={{ duration: 0.32, ease: "easeOut" }}
+                  className="rounded-[14px] border border-cyan-400/25 bg-cyan-500/8 p-3"
+                >
+                  <p className="mb-2 text-xs uppercase tracking-[0.16em] text-[var(--text-secondary)]">Arrange letters</p>
+                  <div className="mb-2 flex flex-wrap justify-center gap-1.5">
+                    {Array.from({ length: currentPicsPuzzle.targetWord.length }).map((_, slotIndex) => {
+                      const letter = displayedPicsLetters[slotIndex] ?? "";
+                      return (
+                        <button
+                          key={`slot-${slotIndex}`}
+                          type="button"
+                          onClick={() => removePicsLetterAt(slotIndex)}
+                          className={cx(
+                            "focus-ring grid h-10 w-9 place-items-center rounded-[10px] border text-sm font-bold",
+                            letter
+                              ? "border-cyan-300/45 bg-cyan-500/16 text-cyan-100"
+                              : "border-white/20 bg-white/5 text-transparent"
+                          )}
+                          aria-label={`Answer slot ${slotIndex + 1}`}
+                        >
+                          {letter || "_"}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-7">
+                    {currentPicsPuzzle.letterBank.map((char, bankIndex) => {
+                      const used = picsSelectedIndices.includes(bankIndex);
+                      return (
+                        <button
+                          key={`${char}-${bankIndex}`}
+                          type="button"
+                          disabled={used || revealed || resolvingRound}
+                          onClick={() => addPicsLetter(bankIndex)}
+                          className={cx(
+                            "focus-ring h-9 rounded-[10px] border text-sm font-bold transition",
+                            used
+                              ? "cursor-not-allowed border-white/10 bg-white/5 text-white/25"
+                              : "border-cyan-300/35 bg-cyan-500/12 text-cyan-100 hover:bg-cyan-500/20"
+                          )}
+                          aria-label={`Letter ${char}`}
+                        >
+                          {char}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-2 flex justify-end">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={usePicsHint}
+                        disabled={revealed || resolvingRound}
+                        className="focus-ring arcade-btn grid h-9 w-9 place-items-center rounded-full border border-amber-400/35 bg-amber-500/12 text-amber-100"
+                        aria-label="Use hint"
+                        title="Use hint (-25)"
+                      >
+                        <Lightbulb className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearPicsSelection}
+                        disabled={revealed || resolvingRound || !picsSelectedIndices.length}
+                        className="focus-ring arcade-btn rounded-button border border-black/10 px-3 py-1.5 text-xs text-[var(--text-secondary)] dark:border-white/15 dark:text-white/80"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            ) : (
+              <div className={cx(
+                "quiz-options grid gap-2.5",
+                activeMode?.id === "true-false"
+                  ? "grid-cols-2"
+                  : question.options.length > 2
+                    ? "sm:grid-cols-2"
+                    : "sm:grid-cols-1 sm:max-w-md sm:mx-auto"
+              )}>
+                {question.options.map((opt, i) => (
+                  <AnswerButton
+                    key={`${opt}-${i}`}
+                    label={letters[i]}
+                    value={opt}
+                    selected={selected === opt}
+                    revealed={revealed}
+                    isCorrect={question.correctAnswer === opt}
+                    onClick={() => chooseAnswer(opt)}
+                  />
                 ))}
-              </AnimatePresence>
-            </div>
+              </div>
+            )}
+
+            {revealed && isPicsWordMode ? (
+              <div className="mt-3 flex justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={finishBattle}
+                  className="focus-ring arcade-btn btn-primary inline-flex items-center gap-2 rounded-button px-4 py-2 text-sm font-semibold"
+                >
+                  Finish Match <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+            ) : null}
+
+            {isPicsWordMode && pendingHintDebt > 0 ? (
+              <div className="mt-2 text-center text-xs text-amber-200/90">
+                Pending hint deduction: -{pendingHintDebt} points on your next successful answer.
+              </div>
+            ) : null}
+            {isPicsWordMode && currentHintPenalty > 0 ? (
+              <div className="mt-1 text-center text-xs text-amber-100/80">
+                Hint used this round: -{currentHintPenalty} points.
+              </div>
+            ) : null}
           </motion.div>
         )}
 
@@ -1025,7 +1840,7 @@ export default function BattleArena() {
                     <Crown className="h-3.5 w-3.5 text-violet-200" /> Match Complete
                   </p>
                   <h2 className="font-sora text-3xl font-bold text-[var(--text-primary)] sm:text-4xl">
-                    {battleSummary.winner === "you" ? "Victory" : battleSummary.winner === "opponent" ? "Defeat" : "Draw"}
+                    {hasSurrendered ? "Surrendered" : battleSummary.winner === "you" ? "Victory" : battleSummary.winner === "opponent" ? "Defeat" : "Draw"}
                   </h2>
                   <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)] sm:text-base">
                     {selectedMode ? `${battleModes.find((mode) => mode.id === selectedMode)?.label ?? "Battle"} • ` : ""}
@@ -1202,6 +2017,164 @@ export default function BattleArena() {
       </AnimatePresence>
 
       <AnimatePresence>
+        {roundNotification ? (
+          (() => {
+            const isIncorrect = roundNotification.title === "Incorrect Answer";
+            const notificationClass = isIncorrect
+              ? "border-rose-400/35 bg-[linear-gradient(145deg,rgba(239,68,68,0.18),rgba(248,113,113,0.14))] shadow-[0_22px_56px_rgba(153,27,27,0.35)]"
+              : "border-emerald-400/35 bg-[linear-gradient(145deg,rgba(16,185,129,0.18),rgba(6,182,212,0.16))] shadow-[0_22px_56px_rgba(5,150,105,0.35)]";
+            const titleClass = isIncorrect ? "text-rose-100" : "text-emerald-100";
+            const bodyClass = isIncorrect ? "text-rose-50/90" : "text-emerald-50/90";
+
+            return (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-20 grid place-items-center bg-black/35 p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className={`w-full max-w-sm rounded-[20px] border p-5 text-center backdrop-blur-xl ${notificationClass}`}
+            >
+                <p className={`font-sora text-xl font-bold ${titleClass}`}>{roundNotification.title}</p>
+                <p className={`mt-1 text-sm ${bodyClass}`}>{roundNotification.body}</p>
+            </motion.div>
+          </motion.div>
+            );
+          })()
+        ) : null}
+
+        {zoomedImage ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-30 grid place-items-center bg-black/75 p-4"
+            onClick={() => setZoomedImage(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="w-full max-w-4xl overflow-hidden rounded-[20px] border border-white/20 bg-black/40"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={zoomedImage.url} alt={zoomedImage.alt} className="max-h-[78vh] w-full object-contain" />
+              <div className="flex justify-end p-3">
+                <button
+                  type="button"
+                  onClick={() => setZoomedImage(null)}
+                  className="focus-ring arcade-btn rounded-button border border-white/30 px-3 py-1.5 text-xs font-semibold text-white"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+
+        {selectedQueuePlayer ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-30 grid place-items-center bg-black/60 p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              className="relative w-full max-w-lg rounded-[22px] border border-cyan-400/35 bg-[var(--bg-card)] p-5 shadow-[0_22px_56px_rgba(15,23,42,0.35)] backdrop-blur-xl"
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedQueuePlayer(null)}
+                aria-label="Close challenge modal"
+                className="focus-ring absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full border border-black/10 text-[var(--text-secondary)] hover:border-cyan-400/45 hover:text-cyan-200 dark:border-white/15"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <div className="flex items-center gap-3">
+                <ProfilePhoto photo={selectedQueuePlayer.photo} fallbackText={selectedQueuePlayer.username} className="h-11 w-11 border-cyan-400/45" />
+                <div>
+                  <p className="font-sora text-lg font-semibold text-[var(--text-primary)]">Challenge {selectedQueuePlayer.username}?</p>
+                  <p className="text-xs text-[var(--text-secondary)]">{selectedQueuePlayer.rank} • Waiting {selectedQueuePlayer.waitingSeconds}s</p>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-[14px] border border-cyan-400/25 bg-black/15 p-3 text-xs text-[var(--text-secondary)]">
+                <p>Preferred Mode: {battleModes.find((mode) => mode.id === selectedQueuePlayer.preferredMode)?.label ?? "Classic Quiz"}</p>
+                <p>Preferred Category: {selectedQueuePlayer.preferredCategory}</p>
+              </div>
+
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const opponent = toBattleOpponent(selectedQueuePlayer);
+                    setQueuedOpponentOverride(opponent);
+                    setMatchedOpponent(opponent);
+                    setSelectedMode(selectedQueuePlayer.preferredMode);
+                    setSelectedCategory(selectedQueuePlayer.preferredCategory);
+                    setSetupTab("category");
+                    setSelectedQueuePlayer(null);
+                    setTimeout(() => {
+                      void startSearch();
+                    }, 0);
+                  }}
+                  className="focus-ring arcade-btn btn-success rounded-button px-4 py-2 text-sm font-semibold"
+                >
+                  Challenge Now
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+
+        {showSurrenderConfirm ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-30 grid place-items-center bg-black/60 p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              className="w-full max-w-md rounded-[22px] border border-rose-400/35 bg-[var(--bg-card)] p-5 shadow-[0_22px_56px_rgba(15,23,42,0.35)] backdrop-blur-xl"
+            >
+              <p className="inline-flex items-center gap-2 font-sora text-lg font-semibold text-[var(--text-primary)]">
+                <Flag className="h-5 w-5 text-rose-300" /> Confirm Surrender?
+              </p>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                This will end the match immediately and count as a loss.
+              </p>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSurrenderConfirm(false)}
+                  className="focus-ring arcade-btn rounded-button border border-black/10 px-4 py-2 text-sm text-[var(--text-secondary)] dark:border-white/15 dark:text-white/80"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={surrenderBattle}
+                  className="focus-ring arcade-btn rounded-button border border-rose-400/45 bg-rose-500/12 px-4 py-2 text-sm font-semibold text-rose-100"
+                >
+                  Surrender
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+
         {showLeaveConfirm ? (
           <motion.div
             initial={{ opacity: 0 }}

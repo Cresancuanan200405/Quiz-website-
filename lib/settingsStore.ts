@@ -89,10 +89,14 @@ export const useSettingsStore = create<SettingsState>()(
           return { preferredDifficulty: value };
         }),
       setNextQuestionDelaySeconds: (value) =>
-        set((state) => ({
-          ...state,
-          nextQuestionDelaySeconds: Math.max(1, Math.min(10, Math.round(value))),
-        })),
+        set((state) => {
+          const safeValue = Math.max(1, Math.min(10, Math.round(value)));
+          const next = { ...state, nextQuestionDelaySeconds: safeValue } as SettingsState;
+          void syncSettingsToSupabase(next);
+          return {
+            nextQuestionDelaySeconds: safeValue,
+          };
+        }),
       setShowDifficultyProgressionDialog: (value) =>
         set(() => ({
           showDifficultyProgressionDialog: value,
