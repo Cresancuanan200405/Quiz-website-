@@ -1239,7 +1239,7 @@ export default function BattleArena() {
                   className={cx(
                     "focus-ring rounded-button border px-3 py-2 text-sm font-semibold",
                     setupTab === "queue"
-                      ? "border-cyan-400/45 bg-cyan-500/12 text-cyan-100"
+                      ? "border-cyan-500/45 bg-cyan-500/12 text-cyan-700 dark:text-cyan-100"
                       : "border-black/10 bg-white/50 text-[var(--text-secondary)] dark:border-white/10 dark:bg-white/5"
                   )}
                   title="Player Queue"
@@ -1301,7 +1301,7 @@ export default function BattleArena() {
                           className={cx(
                             "focus-ring arcade-btn rounded-full border px-3 py-1.5 text-xs font-semibold",
                             selectedQuestionCount === count
-                              ? "border-cyan-400/45 bg-cyan-500/14 text-cyan-100"
+                              ? "border-cyan-500/45 bg-cyan-500/14 text-cyan-700 dark:text-cyan-100"
                               : "border-black/10 bg-white/55 text-[var(--text-secondary)] dark:border-white/10 dark:bg-white/5"
                           )}
                         >
@@ -1357,7 +1357,7 @@ export default function BattleArena() {
                     <button
                       type="button"
                       onClick={() => void loadQueuePlayers()}
-                      className="focus-ring arcade-btn rounded-full border border-cyan-400/35 bg-cyan-500/12 px-2.5 py-1.5 text-xs text-cyan-100"
+                      className="focus-ring arcade-btn rounded-full border border-cyan-500/40 bg-cyan-500/12 px-2.5 py-1.5 text-xs text-cyan-700 dark:border-cyan-400/35 dark:text-cyan-100"
                       aria-label="Refresh queue"
                       title="Refresh queue"
                     >
@@ -1377,23 +1377,23 @@ export default function BattleArena() {
                             key={player.id}
                             type="button"
                             onClick={() => setSelectedQueuePlayer(player)}
-                            className="focus-ring group relative overflow-hidden text-left rounded-[18px] border border-cyan-400/25 bg-[linear-gradient(155deg,rgba(14,165,233,0.18),rgba(30,64,175,0.12)_45%,rgba(15,23,42,0.2))] p-3.5 shadow-[0_10px_26px_rgba(8,47,73,0.2)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:border-cyan-300/55 hover:shadow-[0_16px_34px_rgba(8,47,73,0.32)]"
+                            className="focus-ring group relative overflow-hidden text-left rounded-[18px] border border-cyan-500/30 bg-[linear-gradient(155deg,rgba(14,165,233,0.14),rgba(56,189,248,0.08)_55%,rgba(255,255,255,0.85))] p-3.5 shadow-[0_8px_20px_rgba(6,95,140,0.12)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:border-cyan-500/50 hover:shadow-[0_14px_30px_rgba(6,95,140,0.22)] dark:border-cyan-400/25 dark:bg-[linear-gradient(155deg,rgba(14,165,233,0.18),rgba(30,64,175,0.12)_45%,rgba(15,23,42,0.2))] dark:shadow-[0_10px_26px_rgba(8,47,73,0.2)] dark:hover:border-cyan-300/55 dark:hover:shadow-[0_16px_34px_rgba(8,47,73,0.32)]"
                           >
-                            <span className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-cyan-300/20 blur-2xl transition group-hover:bg-cyan-300/30" />
+                            <span className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-cyan-400/15 blur-2xl transition group-hover:bg-cyan-400/25 dark:bg-cyan-300/20 dark:group-hover:bg-cyan-300/30" />
                             <span className="pointer-events-none absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
                             <div className="flex items-center gap-2">
                               <ProfilePhoto photo={player.photo} fallbackText={player.username} className="h-10 w-10 border-cyan-400/45" />
                               <div className="min-w-0">
                                 <p className="truncate font-sora text-base font-semibold text-[var(--text-primary)]">{player.username}</p>
-                                <p className="text-xs font-semibold text-cyan-100/85">{player.rank}</p>
+                                <p className="text-xs font-semibold text-cyan-700/90 dark:text-cyan-100/85">{player.rank}</p>
                               </div>
                             </div>
                             <div className="mt-2 grid gap-1 text-[11px] text-[var(--text-secondary)]">
                               <p>Mode: {battleModes.find((mode) => mode.id === player.preferredMode)?.label ?? "Classic Quiz"}</p>
                               <p>Category: {player.preferredCategory}</p>
-                              <p className="inline-flex items-center gap-1 font-semibold text-cyan-100/90"><Clock3 className="h-3 w-3" /> Waiting: {player.waitingSeconds}s</p>
+                              <p className="inline-flex items-center gap-1 font-semibold text-cyan-700/90 dark:text-cyan-100/90"><Clock3 className="h-3 w-3" /> Waiting: {player.waitingSeconds}s</p>
                             </div>
-                            <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-100/95">Tap to challenge</p>
+                            <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-700/95 dark:text-cyan-100/95">Tap to challenge</p>
                           </button>
                         ))}
                       </div>
@@ -1488,7 +1488,7 @@ export default function BattleArena() {
             <p className="mt-4 text-center text-sm text-[var(--text-secondary)]">
               {activeMode?.label} • {selectedCategoryLabel}
             </p>
-            <p className="mt-1 text-center text-xs text-cyan-300/90 dark:text-cyan-200/90">
+            <p className="mt-1 text-center text-xs text-cyan-700/90 dark:text-cyan-200/90">
               {selectedCategory === RANDOM_CATEGORY_ID
                 ? `Random picked: ${resolvedCategoryName ?? "Loading..."}`
                 : `Category locked: ${resolvedCategoryName ?? activeCategory?.name ?? "Loading..."}`}
@@ -1520,7 +1520,7 @@ export default function BattleArena() {
               <div className="rounded-full bg-black/5 p-1 dark:bg-white/8">
                 <div className="h-2 rounded-full bg-violet-400" style={{ width: `${(youScore / maxBattlePoints) * 100}%` }} />
               </div>
-              <div className="grid h-12 min-w-[74px] place-items-center rounded-full border border-cyan-400/25 bg-cyan-500/10 px-3 text-[11px] font-semibold text-cyan-100">
+              <div className="grid h-12 min-w-[74px] place-items-center rounded-full border border-cyan-500/35 bg-cyan-100/75 px-3 text-[11px] font-semibold text-cyan-700 dark:border-cyan-400/25 dark:bg-cyan-500/10 dark:text-cyan-100">
                 {formatElapsedTime(matchElapsedSeconds)}
               </div>
               <div className="rounded-full bg-black/5 p-1 dark:bg-white/8">
@@ -1543,12 +1543,12 @@ export default function BattleArena() {
                         className={cx(
                           "focus-ring arcade-btn h-8 min-w-8 rounded-full border px-2 text-xs font-semibold",
                           isActive
-                            ? "border-violet-400/50 bg-violet-500/16 text-violet-100"
+                            ? "border-violet-500/45 bg-violet-200/75 text-violet-800 dark:border-violet-400/50 dark:bg-violet-500/16 dark:text-violet-100"
                             : answered
                               ? answered.correct
-                                ? "border-emerald-400/40 bg-emerald-500/12 text-emerald-100"
-                                : "border-rose-400/40 bg-rose-500/12 text-rose-100"
-                              : "border-white/15 bg-white/8 text-[var(--text-secondary)]"
+                                ? "border-emerald-500/45 bg-emerald-100 text-emerald-800 dark:border-emerald-400/40 dark:bg-emerald-500/12 dark:text-emerald-100"
+                                : "border-rose-500/45 bg-rose-100 text-rose-800 dark:border-rose-400/40 dark:bg-rose-500/12 dark:text-rose-100"
+                              : "border-black/10 bg-white/80 text-slate-600 dark:border-white/15 dark:bg-white/8 dark:text-[var(--text-secondary)]"
                         )}
                         aria-label={`Go to round ${roundIndex + 1}`}
                         title={`Round ${roundIndex + 1}`}
@@ -1559,9 +1559,9 @@ export default function BattleArena() {
                         {!answered ? (
                           <span>•</span>
                         ) : answered.correct ? (
-                          <CircleCheck className="h-3.5 w-3.5 text-emerald-300" />
+                          <CircleCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-300" />
                         ) : (
-                          <CircleX className="h-3.5 w-3.5 text-rose-300" />
+                          <CircleX className="h-3.5 w-3.5 text-rose-600 dark:text-rose-300" />
                         )}
                       </span>
                     </div>
@@ -1571,7 +1571,7 @@ export default function BattleArena() {
               <button
                 type="button"
                 onClick={() => setShowSurrenderConfirm(true)}
-                className="focus-ring arcade-btn grid h-9 w-9 place-items-center rounded-full border border-rose-400/40 bg-rose-500/12 text-rose-100"
+                className="focus-ring arcade-btn grid h-9 w-9 place-items-center rounded-full border border-rose-500/40 bg-rose-500/14 text-rose-700 dark:border-rose-400/40 dark:bg-rose-500/12 dark:text-rose-100"
                 aria-label="Surrender match"
                 title="Surrender"
               >
@@ -1704,7 +1704,7 @@ export default function BattleArena() {
                 <motion.div
                   animate={picsShake ? { x: [0, -8, 8, -5, 5, 0] } : { x: 0 }}
                   transition={{ duration: 0.32, ease: "easeOut" }}
-                  className="rounded-[14px] border border-cyan-400/25 bg-cyan-500/8 p-3"
+                  className="rounded-[14px] border border-cyan-500/30 bg-cyan-100/65 p-3 dark:border-cyan-400/25 dark:bg-cyan-500/8"
                 >
                   <p className="mb-2 text-xs uppercase tracking-[0.16em] text-[var(--text-secondary)]">Arrange letters</p>
                   <div className="mb-2 flex flex-wrap justify-center gap-1.5">
@@ -1718,8 +1718,8 @@ export default function BattleArena() {
                           className={cx(
                             "focus-ring grid h-10 w-9 place-items-center rounded-[10px] border text-sm font-bold",
                             letter
-                              ? "border-cyan-300/45 bg-cyan-500/16 text-cyan-100"
-                              : "border-white/20 bg-white/5 text-transparent"
+                              ? "border-cyan-500/45 bg-cyan-200/80 text-cyan-900 dark:border-cyan-300/45 dark:bg-cyan-500/16 dark:text-cyan-100"
+                              : "border-slate-300/70 bg-white/80 text-slate-500 dark:border-white/20 dark:bg-white/5 dark:text-white/35"
                           )}
                           aria-label={`Answer slot ${slotIndex + 1}`}
                         >
@@ -1741,8 +1741,8 @@ export default function BattleArena() {
                           className={cx(
                             "focus-ring h-9 rounded-[10px] border text-sm font-bold transition",
                             used
-                              ? "cursor-not-allowed border-white/10 bg-white/5 text-white/25"
-                              : "border-cyan-300/35 bg-cyan-500/12 text-cyan-100 hover:bg-cyan-500/20"
+                              ? "cursor-not-allowed border-slate-300/70 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-white/25"
+                              : "border-cyan-500/45 bg-cyan-100 text-cyan-900 hover:bg-cyan-200 dark:border-cyan-300/35 dark:bg-cyan-500/12 dark:text-cyan-100 dark:hover:bg-cyan-500/20"
                           )}
                           aria-label={`Letter ${char}`}
                         >
@@ -1758,7 +1758,7 @@ export default function BattleArena() {
                         type="button"
                         onClick={usePicsHint}
                         disabled={revealed || resolvingRound}
-                        className="focus-ring arcade-btn grid h-9 w-9 place-items-center rounded-full border border-amber-400/35 bg-amber-500/12 text-amber-100"
+                        className="focus-ring arcade-btn grid h-9 w-9 place-items-center rounded-full border border-amber-500/50 bg-amber-100 text-amber-700 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.08)] dark:border-amber-400/35 dark:bg-amber-500/12 dark:text-amber-100"
                         aria-label="Use hint"
                         title="Use hint (-25)"
                       >
@@ -1836,7 +1836,7 @@ export default function BattleArena() {
             )}>
               <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
                 <div>
-                  <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)] dark:text-white/70">
+                  <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600 dark:border-white/15 dark:bg-white/10 dark:text-white/70">
                     <Crown className="h-3.5 w-3.5 text-violet-200" /> Match Complete
                   </p>
                   <h2 className="font-sora text-3xl font-bold text-[var(--text-primary)] sm:text-4xl">
@@ -1846,24 +1846,24 @@ export default function BattleArena() {
                     {selectedMode ? `${battleModes.find((mode) => mode.id === selectedMode)?.label ?? "Battle"} • ` : ""}
                     {battleCategoryLabel ?? selectedCategoryLabel ?? "Selected category"}
                   </p>
-                  <p className="mt-2 text-xs text-[var(--text-muted)]">
+                  <p className="mt-2 text-xs text-slate-500 dark:text-[var(--text-muted)]">
                     Winner is determined by the total score gathered across the match. Faster answers and longer streaks earn more points.
                   </p>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-                  <div className="rounded-[18px] border border-white/15 bg-white/8 p-4 text-center shadow-[0_10px_24px_rgba(15,23,42,0.12)] dark:bg-white/5">
-                    <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Winner</p>
+                  <div className="rounded-[18px] border border-black/10 bg-white/70 p-4 text-center shadow-[0_10px_24px_rgba(15,23,42,0.12)] dark:border-white/15 dark:bg-white/5">
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-[var(--text-muted)]">Winner</p>
                     <p className="mt-1 font-sora text-lg font-semibold text-[var(--text-primary)]">
                       {battleSummary.winner === "you" ? displayName : battleSummary.winner === "opponent" ? matchedOpponent.username : "Tie"}
                     </p>
                   </div>
-                  <div className="rounded-[18px] border border-white/15 bg-white/8 p-4 text-center shadow-[0_10px_24px_rgba(15,23,42,0.12)] dark:bg-white/5">
-                    <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Margin</p>
+                  <div className="rounded-[18px] border border-black/10 bg-white/70 p-4 text-center shadow-[0_10px_24px_rgba(15,23,42,0.12)] dark:border-white/15 dark:bg-white/5">
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-[var(--text-muted)]">Margin</p>
                     <p className="mt-1 font-sora text-lg font-semibold text-[var(--text-primary)]">+{battleSummary.margin}</p>
                   </div>
-                  <div className="rounded-[18px] border border-white/15 bg-white/8 p-4 text-center shadow-[0_10px_24px_rgba(15,23,42,0.12)] dark:bg-white/5">
-                    <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Rounds</p>
+                  <div className="rounded-[18px] border border-black/10 bg-white/70 p-4 text-center shadow-[0_10px_24px_rgba(15,23,42,0.12)] dark:border-white/15 dark:bg-white/5">
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-[var(--text-muted)]">Rounds</p>
                     <p className="mt-1 font-sora text-lg font-semibold text-[var(--text-primary)]">{battleSummary.totalRoundsLabel}</p>
                   </div>
                 </div>
@@ -1902,7 +1902,7 @@ export default function BattleArena() {
                     </p>
                     <p className="text-xs text-[var(--text-secondary)]">Round performance and battle signals.</p>
                   </div>
-                  <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs text-[var(--text-secondary)]">
+                  <span className="rounded-full border border-black/10 bg-white/70 px-3 py-1 text-xs text-slate-600 dark:border-white/10 dark:bg-white/10 dark:text-[var(--text-secondary)]">
                     {battleSummary.roundProgress}% complete
                   </span>
                 </div>
@@ -1943,7 +1943,7 @@ export default function BattleArena() {
                     </p>
                     <p className="text-xs text-[var(--text-secondary)]">Latest round-by-round scoring snapshot.</p>
                   </div>
-                  <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs text-[var(--text-secondary)]">
+                  <span className="rounded-full border border-black/10 bg-white/70 px-3 py-1 text-xs text-slate-600 dark:border-white/10 dark:bg-white/10 dark:text-[var(--text-secondary)]">
                     {roundResults.length} rounds
                   </span>
                 </div>
@@ -1959,8 +1959,8 @@ export default function BattleArena() {
                         <span className={cx(
                           "rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",
                           round.userPoints >= round.opponentPoints
-                            ? "border border-emerald-400/35 bg-emerald-500/10 text-emerald-200"
-                            : "border border-rose-400/35 bg-rose-500/10 text-rose-200"
+                            ? "border border-emerald-500/35 bg-emerald-100 text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-500/10 dark:text-emerald-200"
+                            : "border border-rose-500/35 bg-rose-100 text-rose-700 dark:border-rose-400/35 dark:bg-rose-500/10 dark:text-rose-200"
                         )}>
                           {round.userPoints >= round.opponentPoints ? "Won" : "Lost"}
                         </span>
@@ -2021,17 +2021,17 @@ export default function BattleArena() {
           (() => {
             const isIncorrect = roundNotification.title === "Incorrect Answer";
             const notificationClass = isIncorrect
-              ? "border-rose-400/35 bg-[linear-gradient(145deg,rgba(239,68,68,0.18),rgba(248,113,113,0.14))] shadow-[0_22px_56px_rgba(153,27,27,0.35)]"
-              : "border-emerald-400/35 bg-[linear-gradient(145deg,rgba(16,185,129,0.18),rgba(6,182,212,0.16))] shadow-[0_22px_56px_rgba(5,150,105,0.35)]";
-            const titleClass = isIncorrect ? "text-rose-100" : "text-emerald-100";
-            const bodyClass = isIncorrect ? "text-rose-50/90" : "text-emerald-50/90";
+              ? "border-rose-500/45 bg-[linear-gradient(145deg,rgba(255,241,242,0.98),rgba(254,226,226,0.95))] shadow-[0_22px_56px_rgba(153,27,27,0.24)] dark:border-rose-400/35 dark:bg-[linear-gradient(145deg,rgba(239,68,68,0.22),rgba(190,24,93,0.16))] dark:shadow-[0_22px_56px_rgba(153,27,27,0.35)]"
+              : "border-emerald-500/45 bg-[linear-gradient(145deg,rgba(236,253,245,0.98),rgba(209,250,229,0.95))] shadow-[0_22px_56px_rgba(5,150,105,0.2)] dark:border-emerald-400/35 dark:bg-[linear-gradient(145deg,rgba(16,185,129,0.22),rgba(6,182,212,0.16))] dark:shadow-[0_22px_56px_rgba(5,150,105,0.35)]";
+            const titleClass = isIncorrect ? "text-rose-700 dark:text-rose-100" : "text-emerald-700 dark:text-emerald-100";
+            const bodyClass = isIncorrect ? "text-rose-600/95 dark:text-rose-50/90" : "text-emerald-700/95 dark:text-emerald-50/90";
 
             return (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-20 grid place-items-center bg-black/35 p-4"
+            className="absolute inset-0 z-20 grid place-items-center bg-black/45 p-4 backdrop-blur-[2px]"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -2094,7 +2094,7 @@ export default function BattleArena() {
                 type="button"
                 onClick={() => setSelectedQueuePlayer(null)}
                 aria-label="Close challenge modal"
-                className="focus-ring absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full border border-black/10 text-[var(--text-secondary)] hover:border-cyan-400/45 hover:text-cyan-200 dark:border-white/15"
+                className="focus-ring absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full border border-black/10 text-[var(--text-secondary)] hover:border-cyan-500/45 hover:text-cyan-700 dark:border-white/15 dark:hover:text-cyan-200"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -2112,7 +2112,7 @@ export default function BattleArena() {
                 <p>Preferred Category: {selectedQueuePlayer.preferredCategory}</p>
               </div>
 
-              <div className="mt-4 flex justify-end">
+              <div className="mt-4 flex justify-center">
                 <button
                   type="button"
                   onClick={() => {
@@ -2150,7 +2150,7 @@ export default function BattleArena() {
               className="w-full max-w-md rounded-[22px] border border-rose-400/35 bg-[var(--bg-card)] p-5 shadow-[0_22px_56px_rgba(15,23,42,0.35)] backdrop-blur-xl"
             >
               <p className="inline-flex items-center gap-2 font-sora text-lg font-semibold text-[var(--text-primary)]">
-                <Flag className="h-5 w-5 text-rose-300" /> Confirm Surrender?
+                <Flag className="h-5 w-5 text-rose-500 dark:text-rose-300" /> Confirm Surrender?
               </p>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
                 This will end the match immediately and count as a loss.
@@ -2166,7 +2166,7 @@ export default function BattleArena() {
                 <button
                   type="button"
                   onClick={surrenderBattle}
-                  className="focus-ring arcade-btn rounded-button border border-rose-400/45 bg-rose-500/12 px-4 py-2 text-sm font-semibold text-rose-100"
+                  className="focus-ring arcade-btn rounded-button border border-rose-500/45 bg-rose-100 px-4 py-2 text-sm font-semibold text-rose-700 dark:border-rose-400/45 dark:bg-rose-500/12 dark:text-rose-100"
                 >
                   Surrender
                 </button>
