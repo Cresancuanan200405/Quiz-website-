@@ -4,6 +4,9 @@ import type { ProfilePhotoValue } from "@/lib/profilePhotoStore";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const PROFILE_KEY = "local-player";
+const LOCAL_BATTLE_SESSIONS_KEY = "local-battle-sessions";
+
+let isBattleSessionsTableMissing = false;
 
 interface AppUserProfileBattleRow {
   profile_key: string;
@@ -28,6 +31,16 @@ export interface BattleSessionPayload {
   opponentScore: number;
   opponentName: string;
 }
+
+const persistBattleSessionLocally = (payload: BattleSessionPayload) => {
+  if (typeof window === "undefined") return;
+
+  const existingRaw = window.localStorage.getItem(LOCAL_BATTLE_SESSIONS_KEY);
+  const existing = existingRaw ? (JSON.parse(existingRaw) as Array<BattleSessionPayload & { playedAt: string }>) : [];
+
+  existing.push({ ...payload, playedAt: new Date().toISOString() });
+  window.localStorage.setItem(LOCAL_BATTLE_SESSIONS_KEY, JSON.stringify(existing.slice(-100)));
+};
 
 export const loadBattleOpponentsFromSupabase = async (): Promise<BattleOpponentCandidate[]> => {
   const supabase = getSupabaseBrowserClient();
@@ -57,7 +70,15 @@ export const loadBattleOpponentsFromSupabase = async (): Promise<BattleOpponentC
 
 export const persistBattleSessionToSupabase = async (payload: BattleSessionPayload) => {
   const supabase = getSupabaseBrowserClient();
-  if (!supabase) return;
+  if (!supabase) {
+    persistBattleSessionLocally(payload);
+    return;
+  }
+
+  if (isBattleSessionsTableMissing) {
+    persistBattleSessionLocally(payload);
+    return;
+  }
 
   // This keeps battle sessions attached to the local profile key used by profile persistence.
   const { error } = await supabase.from("app_battle_sessions").insert({
@@ -73,6 +94,15 @@ export const persistBattleSessionToSupabase = async (payload: BattleSessionPaylo
 
   // Keep gameplay functional even if the table is not created yet.
   if (error) {
+    const missingTable = /app_battle_sessions/i.test(error.message) && /schema cache|could not find the table/i.test(error.message);
+    if (missingTable) {
+      isBattleSessionsTableMissing = true;
+      persistBattleSessionLocally(payload);
+      console.warn("Battle sessions table is missing in Supabase. Run the migration to enable remote battle persistence.");
+      return;
+    }
+
     console.warn("Unable to persist battle session to Supabase", error.message);
+    persistBattleSessionLocally(payload);
   }
 };

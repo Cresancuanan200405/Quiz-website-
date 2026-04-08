@@ -61,6 +61,7 @@ export default function Sidebar() {
         soundEffects: persisted.soundEffects,
         music: persisted.music,
         autoStartNextQuiz: persisted.autoStartNextQuiz,
+        nextQuestionDelaySeconds: persisted.nextQuestionDelaySeconds,
         dailyReminder: persisted.dailyReminder,
         challengeAlerts: persisted.challengeAlerts,
         emailNotifications: persisted.emailNotifications,

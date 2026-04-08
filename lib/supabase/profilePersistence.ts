@@ -19,6 +19,7 @@ interface AppUserProfileRow {
   sound_effects: boolean;
   music: boolean;
   auto_start_next_quiz: boolean;
+  next_question_delay_seconds: number | null;
   daily_reminder: boolean;
   challenge_alerts: boolean;
   email_notifications: boolean;
@@ -54,7 +55,9 @@ export const loadProfileFromSupabase = async (): Promise<ProfilePersistencePaylo
 
   const { data, error } = await supabase
     .from("app_user_profiles")
-    .select("profile_key, display_name, handle, tier, tags, avatar_type, avatar_value, updated_at")
+    .select(
+      "profile_key, display_name, handle, tier, tags, avatar_type, avatar_value, public_profile, show_online_status, sound_effects, music, auto_start_next_quiz, next_question_delay_seconds, daily_reminder, challenge_alerts, email_notifications, default_language, preferred_difficulty, updated_at"
+    )
     .eq("profile_key", PROFILE_KEY)
     .maybeSingle<AppUserProfileRow>();
 
@@ -76,6 +79,7 @@ export const loadProfileFromSupabase = async (): Promise<ProfilePersistencePaylo
     soundEffects: data.sound_effects,
     music: data.music,
     autoStartNextQuiz: data.auto_start_next_quiz,
+    nextQuestionDelaySeconds: data.next_question_delay_seconds ?? 3,
     dailyReminder: data.daily_reminder,
     challengeAlerts: data.challenge_alerts,
     emailNotifications: data.email_notifications,
@@ -104,6 +108,7 @@ export const persistProfileToSupabase = async (payload: ProfilePersistencePayloa
       sound_effects: payload.soundEffects ?? true,
       music: payload.music ?? false,
       auto_start_next_quiz: payload.autoStartNextQuiz ?? true,
+      next_question_delay_seconds: payload.nextQuestionDelaySeconds ?? 3,
       daily_reminder: payload.dailyReminder ?? true,
       challenge_alerts: payload.challengeAlerts ?? true,
       email_notifications: payload.emailNotifications ?? false,
@@ -127,6 +132,7 @@ export const persistSettingsToSupabase = async (payload: PersistedSettingsPayloa
       sound_effects: payload.soundEffects,
       music: payload.music,
       auto_start_next_quiz: payload.autoStartNextQuiz,
+      next_question_delay_seconds: payload.nextQuestionDelaySeconds,
       daily_reminder: payload.dailyReminder,
       challenge_alerts: payload.challengeAlerts,
       email_notifications: payload.emailNotifications,

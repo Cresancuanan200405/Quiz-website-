@@ -60,10 +60,16 @@ export const useSettingsStore = create<SettingsState>()(
       defaultLanguage: "English",
       preferredDifficulty: "Medium",
       setAllSettings: (settings) =>
-        set((state) => ({
-          ...state,
-          ...settings,
-        })),
+        set((state) => {
+          const sanitized = Object.fromEntries(
+            Object.entries(settings).filter(([, value]) => value !== undefined)
+          );
+
+          return {
+            ...state,
+            ...sanitized,
+          };
+        }),
       setToggle: (key, value) =>
         set((state) => {
           const next = { ...state, [key]: value } as SettingsState;
