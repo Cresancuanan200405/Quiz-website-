@@ -13,6 +13,7 @@ import { useProfilePhotoStore } from "@/lib/profilePhotoStore";
 import { useProfileStore } from "@/lib/profileStore";
 import { loadBattleOpponentsFromSupabase, persistBattleSessionToSupabase } from "@/lib/supabase/battlePersistence";
 import { useSettingsStore } from "@/lib/settingsStore";
+import { useBattleStatsStore } from "@/lib/battleStatsStore";
 import { cx } from "@/lib/utils";
 
 const letters = ["A", "B", "C", "D"];
@@ -446,6 +447,7 @@ export default function BattleArena() {
   const { photo: profilePhoto } = useProfilePhotoStore();
   const { displayName, tier } = useProfileStore();
   const nextQuestionDelaySeconds = useSettingsStore((state) => state.nextQuestionDelaySeconds);
+  const recordBattleSession = useBattleStatsStore((state) => state.recordBattleSession);
 
   const [state, setState] = useState<BattleState>("idle");
   const [setupTab, setSetupTab] = useState<"mode" | "category" | "queue">("mode");
@@ -632,6 +634,15 @@ export default function BattleArena() {
     forfeitRecordedRef.current = true;
 
     const forfeitOpponentScore = Math.max(opponentScore + 160, youScore + 120);
+    recordBattleSession({
+      mode: selectedMode,
+      category: battleCategoryLabel ?? selectedCategoryLabel ?? selectedCategory ?? "Unknown",
+      result: "loss",
+      userScore: youScore,
+      opponentScore: forfeitOpponentScore,
+      opponentName: matchedOpponent.username,
+    });
+
     void persistBattleSessionToSupabase({
       mode: selectedMode,
       category: battleCategoryLabel ?? selectedCategoryLabel ?? selectedCategory ?? "Unknown",
@@ -640,7 +651,7 @@ export default function BattleArena() {
       opponentScore: forfeitOpponentScore,
       opponentName: matchedOpponent.username,
     });
-  }, [battleCategoryLabel, matchedOpponent.username, opponentScore, selectedCategory, selectedCategoryLabel, selectedMode, youScore]);
+  }, [battleCategoryLabel, matchedOpponent.username, opponentScore, recordBattleSession, selectedCategory, selectedCategoryLabel, selectedMode, youScore]);
 
   const confirmLeaveBattle = () => {
     persistForfeitResult();
@@ -1017,6 +1028,7 @@ export default function BattleArena() {
 
   useEffect(() => {
     if (state !== "finished" || !selectedMode || !selectedCategory) return;
+    if (hasSurrendered) return;
 
     const playedCategory = battleCategoryLabel ?? selectedCategoryLabel ?? selectedCategory;
     const battleKey = `${selectedMode}:${playedCategory}:${youScore}:${opponentScore}:${battleQuestions.length}:${matchedOpponent.username}`;
@@ -1024,6 +1036,15 @@ export default function BattleArena() {
     persistedBattleKeyRef.current = battleKey;
 
     const result = youScore > opponentScore ? "win" : youScore < opponentScore ? "loss" : "draw";
+    recordBattleSession({
+      mode: selectedMode,
+      category: playedCategory,
+      result,
+      userScore: youScore,
+      opponentScore,
+      opponentName: matchedOpponent.username,
+    });
+
     void persistBattleSessionToSupabase({
       mode: selectedMode,
       category: playedCategory,
@@ -1032,7 +1053,7 @@ export default function BattleArena() {
       opponentScore,
       opponentName: matchedOpponent.username,
     });
-  }, [battleCategoryLabel, battleQuestions.length, matchedOpponent.username, opponentScore, selectedCategory, selectedCategoryLabel, selectedMode, state, youScore]);
+  }, [battleCategoryLabel, battleQuestions.length, hasSurrendered, matchedOpponent.username, opponentScore, recordBattleSession, selectedCategory, selectedCategoryLabel, selectedMode, state, youScore]);
 
   const chooseAnswer = (value: string) => {
     if (revealed || state !== "playing" || !question || answeredRoundMap[index]) return;

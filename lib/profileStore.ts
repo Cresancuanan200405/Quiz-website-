@@ -9,6 +9,7 @@ export const MAX_PROFILE_TAGS = 12;
 export interface ProfileSnapshot {
   displayName: string;
   handle: string;
+  bio: string;
   tier: string;
   tags: string[];
 }
@@ -21,6 +22,7 @@ interface ProfileState extends ProfileSnapshot {
 const defaultProfile: ProfileSnapshot = {
   displayName: currentUser.username,
   handle: currentUser.handle,
+  bio: "Curious challenger exploring trivia and strategy one round at a time.",
   tier: currentUser.tier,
   tags: currentUser.badges.slice(0, MAX_PROFILE_TAGS),
 };
@@ -38,6 +40,7 @@ export const useProfileStore = create<ProfileState>()(
         set((state) => ({
           displayName: (updates.displayName ?? state.displayName).trim(),
           handle: (updates.handle ?? state.handle).trim(),
+          bio: typeof updates.bio === "string" ? updates.bio.trim().slice(0, 280) : state.bio,
           tier: updates.tier ?? state.tier,
           tags: updates.tags ? sanitizeTags(updates.tags) : state.tags,
         })),

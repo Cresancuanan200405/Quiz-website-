@@ -4,11 +4,22 @@ import { useEffect } from "react";
 import { useThemeStore } from "@/lib/themeStore";
 
 export default function ThemeHydrator() {
-  const { theme, setTheme } = useThemeStore();
+  const theme = useThemeStore((state) => state.theme);
 
   useEffect(() => {
-    setTheme(theme);
-  }, [setTheme, theme]);
+    const kickoff = window.setTimeout(() => {
+      const root = document.documentElement;
+      if (theme === "dark") {
+        root.classList.add("dark");
+        root.classList.remove("light");
+      } else {
+        root.classList.remove("dark");
+        root.classList.add("light");
+      }
+    }, 0);
+
+    return () => window.clearTimeout(kickoff);
+  }, [theme]);
 
   return null;
 }

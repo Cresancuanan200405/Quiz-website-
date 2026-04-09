@@ -174,7 +174,7 @@ body::before {
 }
 
 .quiz-options .answer-btn {
-  min-height: 0;
+  min-height: clamp(88px, 11vh, 132px);
 }
 
 .quiz-footer {
@@ -242,20 +242,20 @@ body::before {
   }
 
   .quiz-options .answer-btn {
-    min-height: 48px;
-    padding: 0.45rem;
-    gap: 0.2rem;
+    min-height: 58px;
+    padding: 0.55rem;
+    gap: 0.3rem;
   }
 
   .quiz-options .answer-btn span:last-child {
-    font-size: 0.75rem;
+    font-size: 0.84rem;
     line-height: 1.1;
   }
 
   .quiz-feedback {
     margin-top: 0;
     max-height: 2.2rem;
-    overflow: auto;
+    overflow: hidden;
     padding-top: 0.25rem;
     padding-bottom: 0.25rem;
   }

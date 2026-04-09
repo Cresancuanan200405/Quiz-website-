@@ -12,9 +12,10 @@ interface LeaderboardRowProps {
   href?: string;
   compact?: boolean;
   showAccuracy?: boolean;
+  activityLabel?: string;
 }
 
-export default function LeaderboardRow({ user, highlight, index = 0, href, compact = false, showAccuracy = true }: LeaderboardRowProps) {
+export default function LeaderboardRow({ user, highlight, index = 0, href, compact = false, showAccuracy = true, activityLabel = "quizzes" }: LeaderboardRowProps) {
   const rowCols = compact
     ? showAccuracy
       ? "grid-cols-[56px_minmax(0,1.25fr)_minmax(0,0.85fr)_minmax(0,120px)_92px]"
@@ -44,7 +45,7 @@ export default function LeaderboardRow({ user, highlight, index = 0, href, compa
         </span>
         <div className="min-w-0">
           <p className="truncate text-left font-medium text-[var(--text-primary)]">{user.username}</p>
-          <p className="text-xs text-[var(--text-secondary)]">{user.quizCount} quizzes</p>
+          <p className="text-xs text-[var(--text-secondary)]">{user.quizCount} {activityLabel}</p>
         </div>
       </div>
       <p className={`justify-self-start whitespace-nowrap font-sora font-semibold text-[var(--text-primary)] ${scoreText}`}>{user.score.toLocaleString()}</p>

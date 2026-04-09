@@ -2,9 +2,9 @@
 
 import type { ProfilePhotoValue } from "@/lib/profilePhotoStore";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getLocalProfileKey } from "@/lib/supabase/profileKey";
 
-const PROFILE_KEY = "local-player";
-const LOCAL_BATTLE_SESSIONS_KEY = "local-battle-sessions";
+export const LOCAL_BATTLE_SESSIONS_KEY = "local-battle-sessions";
 
 let isBattleSessionsTableMissing = false;
 
@@ -45,11 +45,12 @@ const persistBattleSessionLocally = (payload: BattleSessionPayload) => {
 export const loadBattleOpponentsFromSupabase = async (): Promise<BattleOpponentCandidate[]> => {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return [];
+  const profileKey = getLocalProfileKey();
 
   const { data, error } = await supabase
     .from("app_user_profiles")
     .select("profile_key, display_name, tier, avatar_type, avatar_value")
-    .neq("profile_key", PROFILE_KEY)
+    .neq("profile_key", profileKey)
     .limit(25)
     .returns<AppUserProfileBattleRow[]>();
 
@@ -80,9 +81,11 @@ export const persistBattleSessionToSupabase = async (payload: BattleSessionPaylo
     return;
   }
 
+  const profileKey = getLocalProfileKey();
+
   // This keeps battle sessions attached to the local profile key used by profile persistence.
   const { error } = await supabase.from("app_battle_sessions").insert({
-    profile_key: PROFILE_KEY,
+    profile_key: profileKey,
     mode: payload.mode,
     category: payload.category,
     result: payload.result,

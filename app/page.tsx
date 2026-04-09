@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ShieldCheck, Swords, Trophy } from "lucide-react";
+import { ArrowRight, Award, Crown, Flame, Shield, ShieldCheck, Swords, Target, Trophy } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
@@ -10,17 +10,36 @@ import CategoryCard from "@/components/CategoryCard";
 import FactCard from "@/components/FactCard";
 import StatCard from "@/components/StatCard";
 import CategoryPreviewModal from "@/components/CategoryPreviewModal";
-import LeaderboardRow from "@/components/LeaderboardRow";
 import { categoryMeta, currentUser, onlinePlayers } from "@/lib/mockData";
+import { buildAchievementProgress, getUnlockedAchievements } from "@/lib/achievements";
 import { usePlayerStatsStore } from "@/lib/playerStatsStore";
-import { getRankedLeaderboard } from "@/lib/leaderboard";
+import { useBattleStatsStore } from "@/lib/battleStatsStore";
+import { useProfileStore } from "@/lib/profileStore";
+import { useProfilePhotoStore } from "@/lib/profilePhotoStore";
+import { fetchBattleLeaderboard, fetchTriviaJourneyLeaderboard, type LeaderboardEntry, type LeaderboardWindow } from "@/lib/supabase/leaderboards";
+import { getLocalProfileKey } from "@/lib/supabase/profileKey";
 
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<(typeof categoryMeta)[0] | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [displayShowAllCategories, setDisplayShowAllCategories] = useState(false);
+  const [leaderboardMode, setLeaderboardMode] = useState<"trivia" | "battle">("trivia");
+  const [previewTab, setPreviewTab] = useState<LeaderboardWindow>("global");
+  const [isRankingLoading, setIsRankingLoading] = useState(false);
   const [now] = useState(() => Date.now());
   const { quizzesCompleted, totalCorrectAnswers, totalAnsweredQuestions, totalPoints, bestStreak, quizHistory } = usePlayerStatsStore();
+  const { battlesPlayed, wins, totalBattlePoints, bestWinStreak } = useBattleStatsStore();
+  const { displayName } = useProfileStore();
+  const { photo } = useProfilePhotoStore();
+  const [myProfileKey, setMyProfileKey] = useState("local-player");
+
+  useEffect(() => {
+    const kickoff = window.setTimeout(() => {
+      setMyProfileKey(getLocalProfileKey());
+    }, 0);
+
+    return () => window.clearTimeout(kickoff);
+  }, []);
 
   const dashboardAccuracy = totalAnsweredQuestions > 0 ? Math.round((totalCorrectAnswers / totalAnsweredQuestions) * 100) : 0;
   const dashboardQuizzes = quizzesCompleted;
@@ -41,16 +60,111 @@ export default function Home() {
     };
   }, [now, quizHistory]);
   const hasNoQuizRecords = dashboardAccuracy === 0 && dashboardStreak === 0 && dashboardQuizzes === 0;
-  const leaderboardRows = useMemo(
-    () =>
-      getRankedLeaderboard({
-        quizzesCompleted,
-        totalCorrectAnswers,
-        totalAnsweredQuestions,
-        totalPoints,
-      }).slice(0, 5),
-    [quizzesCompleted, totalCorrectAnswers, totalAnsweredQuestions, totalPoints]
+  const dashboardAvatar = useMemo(() => {
+    if (photo.type === "initials" && photo.value.trim()) return photo.value.trim().slice(0, 3).toUpperCase();
+    return displayName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "ME";
+  }, [displayName, photo.type, photo.value]);
+
+  const fallbackTriviaPreviewRows = useMemo<LeaderboardEntry[]>(
+    () => [
+      {
+        id: myProfileKey,
+        username: displayName,
+        avatar: dashboardAvatar,
+        points: totalPoints,
+        rank: 1,
+        rankLabel: totalPoints >= 16000 ? "Legendary" : totalPoints >= 14500 ? "Expert" : totalPoints >= 12500 ? "Pro" : "Rising",
+        accuracy: dashboardAccuracy,
+        activityCount: quizzesCompleted,
+      },
+    ],
+    [dashboardAccuracy, dashboardAvatar, displayName, myProfileKey, quizzesCompleted, totalPoints]
   );
+
+  const battleWinRate = battlesPlayed > 0 ? Math.round((wins / battlesPlayed) * 100) : 0;
+  const fallbackBattlePreviewRows = useMemo<LeaderboardEntry[]>(
+    () => [
+      {
+        id: myProfileKey,
+        username: displayName,
+        avatar: dashboardAvatar,
+        points: totalBattlePoints,
+        rank: 1,
+        rankLabel: totalBattlePoints >= 9800 ? "Legendary" : totalBattlePoints >= 8200 ? "Expert" : totalBattlePoints >= 6400 ? "Pro" : "Rising",
+        accuracy: battleWinRate,
+        activityCount: battlesPlayed,
+      },
+    ],
+    [battleWinRate, battlesPlayed, dashboardAvatar, displayName, myProfileKey, totalBattlePoints]
+  );
+
+  const [triviaPreviewRows, setTriviaPreviewRows] = useState<LeaderboardEntry[]>(fallbackTriviaPreviewRows);
+  const [battlePreviewRows, setBattlePreviewRows] = useState<LeaderboardEntry[]>(fallbackBattlePreviewRows);
+
+  useEffect(() => {
+    const kickoff = window.setTimeout(() => {
+      setIsRankingLoading(true);
+
+      void (async () => {
+        const [remoteTrivia, remoteBattle] = await Promise.all([
+          fetchTriviaJourneyLeaderboard(previewTab),
+          fetchBattleLeaderboard(previewTab),
+        ]);
+
+        setTriviaPreviewRows(remoteTrivia.length ? remoteTrivia.slice(0, 5) : fallbackTriviaPreviewRows);
+        setBattlePreviewRows(remoteBattle.length ? remoteBattle.slice(0, 5) : fallbackBattlePreviewRows);
+        setIsRankingLoading(false);
+      })();
+    }, 0);
+
+    return () => window.clearTimeout(kickoff);
+  }, [fallbackBattlePreviewRows, fallbackTriviaPreviewRows, previewTab]);
+
+  const currentTriviaRank = triviaPreviewRows.find((row) => row.id === myProfileKey)?.rank ?? null;
+  const activePreviewRows = leaderboardMode === "trivia" ? triviaPreviewRows : battlePreviewRows;
+
+  const unlockedAchievements = useMemo(
+    () =>
+      getUnlockedAchievements(
+        buildAchievementProgress({
+          quizzesCompleted,
+          totalCorrectAnswers,
+          bestStreak,
+          totalPoints,
+          battlesPlayed,
+          wins,
+          bestWinStreak,
+          totalBattlePoints,
+          quizHistory,
+        })
+      ),
+    [battlesPlayed, bestStreak, bestWinStreak, quizzesCompleted, quizHistory, totalBattlePoints, totalCorrectAnswers, totalPoints, wins]
+  );
+
+  const achievementIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+    "first-journey": Award,
+    "journey-hundred": Target,
+    "streak-master": Flame,
+    "points-collector": Trophy,
+    "battle-initiate": Swords,
+    "battle-victor": Crown,
+    "battle-hotstreak": Shield,
+    "battle-points": Award,
+    "category-mastery": Crown,
+  };
+
+  const rarityTone: Record<string, string> = {
+    Common: "border-slate-300/45 bg-slate-500/12 text-slate-700 dark:text-slate-200",
+    Rare: "border-cyan-300/45 bg-cyan-500/14 text-cyan-700 dark:text-cyan-100",
+    Epic: "border-violet-300/45 bg-violet-500/14 text-violet-700 dark:text-violet-100",
+    Legendary: "border-amber-300/45 bg-amber-500/16 text-amber-700 dark:text-amber-100",
+  };
 
   return (
     <div className="min-h-screen pb-20 dark:bg-[#0A0B14] bg-[#F8F7FF] md:pb-0">
@@ -70,7 +184,7 @@ export default function Home() {
 
             <div className="relative flex flex-wrap items-center justify-between gap-5">
               <div className="max-w-2xl">
-                <p className="mb-1 text-sm text-violet-700 dark:text-violet-200">Welcome back {currentUser.username}</p>
+                <p className="mb-1 text-sm text-violet-700 dark:text-violet-200">Welcome back {displayName}</p>
                 <h1 className="font-sora text-3xl font-bold text-slate-900 sm:text-5xl dark:text-white">Ready for another streak?</h1>
                 <p className="mt-3 text-base text-slate-700 sm:text-lg dark:text-white/65">
                   You&apos;re just 420 points away from breaking into top 5. Keep answering fast to climb.
@@ -93,7 +207,7 @@ export default function Home() {
                 Quizzes {dashboardQuizzes}
               </span>
               <span className="rounded-full border border-violet-400/35 bg-violet-500/10 px-3 py-1 text-sm text-violet-700 dark:text-violet-200">
-                Rank #{currentUser.rank}
+                Rank {currentTriviaRank ? `#${currentTriviaRank}` : "--"}
               </span>
             </div>
           </section>
@@ -229,43 +343,131 @@ export default function Home() {
           </article>
         </section>
 
-          <section className="grid items-start gap-4 lg:grid-cols-2">
-          <article className="glass rounded-card border border-black/10 bg-gradient-to-br from-white/80 via-white/60 to-indigo-100/28 p-4 shadow-[0_16px_30px_rgba(15,23,42,0.12)] transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_36px_rgba(79,70,229,0.18)] dark:border-white/10 dark:bg-gradient-to-br dark:from-slate-900/72 dark:via-slate-900/52 dark:to-indigo-900/22 dark:shadow-[0_18px_36px_rgba(2,8,25,0.42)]">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <p className="font-sora text-lg font-semibold dark:text-white text-gray-900">Leaderboard Preview</p>
-                <p className="text-xs text-[var(--text-secondary)]">Top players with live rank accents and tier highlights</p>
+          {unlockedAchievements.length ? (
+            <section className="glass rounded-[20px] border border-violet-300/25 bg-white/70 p-3 dark:border-white/10 dark:bg-slate-900/58">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-secondary)]">Unlocked Achievement Badges</p>
+                <Link href="/achievements" className="text-xs text-violet-700 hover:text-violet-600 dark:text-violet-200">View achievements</Link>
               </div>
-              <Link href="/leaderboard" className="text-sm text-violet-700 hover:text-violet-600 dark:text-violet-200 dark:hover:text-violet-100">
-                See all
-              </Link>
-            </div>
-
-            <div className="rounded-card border border-black/8 bg-white/40 p-2 dark:border-white/10 dark:bg-white/5">
-              <div className="mb-2 grid grid-cols-[52px_minmax(0,1fr)_minmax(74px,92px)_minmax(88px,110px)] gap-3 px-2 text-[10px] uppercase tracking-[0.16em] text-[var(--text-secondary)]">
-                <span>Rank</span>
-                <span>Player</span>
-                <span>Score</span>
-                <span>Tier</span>
-              </div>
-              <div className="space-y-1.5">
-                {leaderboardRows.map((user, index) => (
-                  <LeaderboardRow
-                    key={user.id}
-                    href={`/player/${user.id}`}
-                    user={user}
-                    highlight={user.id === currentUser.id}
-                    index={index}
-                    compact
-                    showAccuracy={false}
-                  />
+              <div className="flex flex-wrap gap-2">
+                {unlockedAchievements.slice(0, 8).map((item) => (
+                  <motion.div
+                    key={`badge-${item.id}`}
+                    title={`${item.title} (${item.rarity})`}
+                    whileHover={{ y: -2, scale: 1.06, rotateX: 8, rotateY: -6 }}
+                    transition={{ duration: 0.16, ease: "easeOut" }}
+                    style={{ transformStyle: "preserve-3d" }}
+                    className={`group relative grid h-9 w-9 place-items-center rounded-xl border [transform:perspective(600px)] ${rarityTone[item.rarity] ?? rarityTone.Common} shadow-[0_8px_14px_rgba(15,23,42,0.2),inset_0_1px_0_rgba(255,255,255,0.42)]`}
+                  >
+                    <span className="pointer-events-none absolute left-1 top-1 h-2.5 w-5 rounded-full bg-white/35 blur-[2px]" />
+                    {(() => {
+                      const Icon = achievementIconMap[item.id] ?? Award;
+                      return <Icon className="relative z-10 h-4 w-4 drop-shadow-[0_2px_4px_rgba(255,255,255,0.2)]" />;
+                    })()}
+                    <motion.span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 rounded-xl"
+                      animate={{ opacity: [0.2, 0.5, 0.2] }}
+                      transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                      style={{ boxShadow: "0 0 12px rgba(99,102,241,0.35)" }}
+                    />
+                  </motion.div>
                 ))}
               </div>
-            </div>
-          </article>
-
-          <FactCard dynamic featured />
             </section>
+          ) : null}
+
+          <section className="grid items-start gap-4 lg:grid-cols-3">
+            <article className={`glass rounded-card border border-black/10 p-4 shadow-[0_16px_30px_rgba(15,23,42,0.12)] transition-all hover:-translate-y-0.5 dark:border-white/10 dark:shadow-[0_18px_36px_rgba(2,8,25,0.42)] ${
+              leaderboardMode === "battle"
+                ? "bg-gradient-to-br from-white/80 via-white/60 to-cyan-100/30 hover:shadow-[0_22px_36px_rgba(34,211,238,0.18)] dark:bg-gradient-to-br dark:from-slate-900/72 dark:via-slate-900/52 dark:to-cyan-900/22"
+                : "bg-gradient-to-br from-white/80 via-white/60 to-indigo-100/28 hover:shadow-[0_22px_36px_rgba(79,70,229,0.18)] dark:bg-gradient-to-br dark:from-slate-900/72 dark:via-slate-900/52 dark:to-indigo-900/22"
+            } lg:col-span-2`}>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-sora text-lg font-semibold dark:text-white text-gray-900">
+                    {leaderboardMode === "battle" ? "1v1 Battle Preview" : "Trivia Journey Preview"}
+                  </p>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    {leaderboardMode === "battle" ? "Ranked by battle points" : "Ranked by journey points"}
+                  </p>
+                </div>
+                <div className="inline-flex rounded-full border border-black/10 bg-white/65 p-1 text-xs dark:border-white/10 dark:bg-white/5">
+                  <button
+                    type="button"
+                    onClick={() => setLeaderboardMode("trivia")}
+                    className={`focus-ring rounded-full px-3 py-1 ${leaderboardMode === "trivia" ? "bg-violet-500/25 text-violet-700 dark:text-violet-100" : "text-[var(--text-secondary)]"}`}
+                  >
+                    Trivia Journey
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLeaderboardMode("battle")}
+                    className={`focus-ring rounded-full px-3 py-1 ${leaderboardMode === "battle" ? "bg-cyan-500/25 text-cyan-700 dark:text-cyan-100" : "text-[var(--text-secondary)]"}`}
+                  >
+                    1v1 Battle
+                  </button>
+                </div>
+              </div>
+
+              <div className="mb-3 inline-flex rounded-full border border-black/10 bg-white/65 p-1 text-xs dark:border-white/10 dark:bg-white/5">
+                {(["global", "daily", "weekly"] as const).map((tab) => (
+                  <button
+                    key={`preview-tab-${tab}`}
+                    type="button"
+                    onClick={() => setPreviewTab(tab)}
+                    className={`focus-ring rounded-full px-3 py-1 capitalize ${previewTab === tab ? (leaderboardMode === "battle" ? "bg-cyan-500/25 text-cyan-700 dark:text-cyan-100" : "bg-violet-500/25 text-violet-700 dark:text-violet-100") : "text-[var(--text-secondary)]"}`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                {activePreviewRows.map((row) => (
+                  <Link
+                    key={`active-preview-${leaderboardMode}-${row.id}`}
+                    href={`/player/${encodeURIComponent(row.id)}`}
+                    className="focus-ring block rounded-xl"
+                  >
+                  <div
+                    className={`grid grid-cols-[44px_minmax(0,1fr)_86px] items-center gap-2 rounded-xl border px-2.5 py-2 ${
+                      row.id === myProfileKey
+                        ? leaderboardMode === "battle"
+                          ? "border-cyan-400/35 bg-cyan-500/10"
+                          : "border-violet-400/35 bg-violet-500/10"
+                        : "border-black/8 bg-white/55 dark:border-white/10 dark:bg-white/5"
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">#{row.rank}</p>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-[var(--text-primary)]">{row.username}</p>
+                      <p className="text-[11px] text-[var(--text-secondary)]">
+                        {row.activityCount} {leaderboardMode === "battle" ? "battles" : "journeys"} · {row.accuracy}% {leaderboardMode === "battle" ? "win" : "acc"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">{row.points}</p>
+                      <p className="text-[11px] text-[var(--text-secondary)]">{row.rankLabel}</p>
+                    </div>
+                  </div>
+                  </Link>
+                ))}
+                {isRankingLoading ? <p className="text-xs text-[var(--text-secondary)]">Loading live rankings...</p> : null}
+              </div>
+
+              <div className="mt-3 text-right">
+                <Link
+                  href={leaderboardMode === "battle" ? "/battle/leaderboard" : "/leaderboard"}
+                  className={`text-sm ${leaderboardMode === "battle" ? "text-cyan-700 hover:text-cyan-600 dark:text-cyan-200 dark:hover:text-cyan-100" : "text-violet-700 hover:text-violet-600 dark:text-violet-200 dark:hover:text-violet-100"}`}
+                >
+                  {leaderboardMode === "battle" ? "Open Full Battle Board" : "See all"}
+                </Link>
+              </div>
+            </article>
+
+            <FactCard dynamic featured />
+          </section>
         </div>
       </motion.main>
 

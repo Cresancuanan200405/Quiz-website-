@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { DM_Sans, Sora } from "next/font/google";
+import AchievementUnlockNotifier from "@/components/AchievementUnlockNotifier";
 import ThemeHydrator from "@/components/ThemeHydrator";
 import NotificationCenter from "@/components/NotificationCenter";
 import "./globals.css";
@@ -35,30 +37,27 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${sora.variable} ${dmSans.variable} h-full antialiased`}
     >
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var stored = localStorage.getItem('quizarena-theme');
-                  var theme = stored ? JSON.parse(stored).state?.theme : 'dark';
-                  if (theme === 'light') {
-                    document.documentElement.classList.remove('dark');
-                    document.documentElement.classList.add('light');
-                  } else {
-                    document.documentElement.classList.add('dark');
-                  }
-                } catch(e) {
+      <body className="bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300">
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`
+            (function() {
+              try {
+                var stored = localStorage.getItem('quizarena-theme');
+                var theme = stored ? JSON.parse(stored).state?.theme : 'dark';
+                if (theme === 'light') {
+                  document.documentElement.classList.remove('dark');
+                  document.documentElement.classList.add('light');
+                } else {
                   document.documentElement.classList.add('dark');
                 }
-              })();
-            `,
-          }}
-        />
-      </head>
-      <body className="bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300">
+              } catch(e) {
+                document.documentElement.classList.add('dark');
+              }
+            })();
+          `}
+        </Script>
         <ThemeHydrator />
+        <AchievementUnlockNotifier />
         <NotificationCenter />
         {children}
       </body>

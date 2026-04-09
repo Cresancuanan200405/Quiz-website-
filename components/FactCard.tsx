@@ -178,8 +178,8 @@ export default function FactCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={cx(
-        "glass rounded-card border border-black/10 bg-gradient-to-br from-white/80 via-white/60 to-amber-100/20 p-4 shadow-[0_16px_30px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-gradient-to-br dark:from-slate-900/72 dark:via-slate-900/52 dark:to-amber-900/18 dark:shadow-[0_18px_36px_rgba(2,8,25,0.42)]",
-        featured && "border-l-4 border-amber-400"
+        "glass h-full rounded-[22px] border border-black/10 bg-gradient-to-br from-white/86 via-white/68 to-amber-100/22 p-4 shadow-[0_18px_34px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-gradient-to-br dark:from-slate-900/74 dark:via-slate-900/54 dark:to-amber-900/20 dark:shadow-[0_20px_38px_rgba(2,8,25,0.42)]",
+        featured && "border-amber-400/60 ring-1 ring-amber-400/25"
       )}
     >
       {featured ? (

@@ -3,13 +3,13 @@
 import type { ProfilePhotoValue } from "@/lib/profilePhotoStore";
 import type { ProfileSnapshot } from "@/lib/profileStore";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-
-const PROFILE_KEY = "local-player";
+import { getLocalProfileKey } from "@/lib/supabase/profileKey";
 
 interface AppUserProfileRow {
   profile_key: string;
   display_name: string;
   handle: string;
+  bio: string | null;
   tier: string;
   tags: string[];
   avatar_type: ProfilePhotoValue["type"];
@@ -52,13 +52,14 @@ export type ProfilePersistencePayload = PersistedProfilePayload & Partial<Persis
 export const loadProfileFromSupabase = async (): Promise<ProfilePersistencePayload | null> => {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return null;
+  const profileKey = getLocalProfileKey();
 
   const { data, error } = await supabase
     .from("app_user_profiles")
     .select(
-      "profile_key, display_name, handle, tier, tags, avatar_type, avatar_value, public_profile, show_online_status, sound_effects, music, auto_start_next_quiz, next_question_delay_seconds, daily_reminder, challenge_alerts, email_notifications, default_language, preferred_difficulty, updated_at"
+      "profile_key, display_name, handle, bio, tier, tags, avatar_type, avatar_value, public_profile, show_online_status, sound_effects, music, auto_start_next_quiz, next_question_delay_seconds, daily_reminder, challenge_alerts, email_notifications, default_language, preferred_difficulty, updated_at"
     )
-    .eq("profile_key", PROFILE_KEY)
+    .eq("profile_key", profileKey)
     .maybeSingle<AppUserProfileRow>();
 
   if (error || !data) return null;
@@ -67,6 +68,7 @@ export const loadProfileFromSupabase = async (): Promise<ProfilePersistencePaylo
     profile: {
       displayName: data.display_name,
       handle: data.handle,
+      bio: data.bio ?? "",
       tier: data.tier,
       tags: Array.isArray(data.tags) ? data.tags : [],
     },
@@ -91,14 +93,16 @@ export const loadProfileFromSupabase = async (): Promise<ProfilePersistencePaylo
 export const persistProfileToSupabase = async (payload: ProfilePersistencePayload) => {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return;
+  const profileKey = getLocalProfileKey();
 
   const { profile, photo } = payload;
 
   await supabase.from("app_user_profiles").upsert(
     {
-      profile_key: PROFILE_KEY,
+      profile_key: profileKey,
       display_name: profile.displayName,
       handle: profile.handle,
+      bio: profile.bio,
       tier: profile.tier,
       tags: profile.tags,
       avatar_type: photo.type,
@@ -123,6 +127,7 @@ export const persistProfileToSupabase = async (payload: ProfilePersistencePayloa
 export const persistSettingsToSupabase = async (payload: PersistedSettingsPayload) => {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return;
+  const profileKey = getLocalProfileKey();
 
   await supabase
     .from("app_user_profiles")
@@ -140,5 +145,5 @@ export const persistSettingsToSupabase = async (payload: PersistedSettingsPayloa
       preferred_difficulty: payload.preferredDifficulty,
       updated_at: new Date().toISOString(),
     })
-    .eq("profile_key", PROFILE_KEY);
+    .eq("profile_key", profileKey);
 };

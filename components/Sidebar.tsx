@@ -21,11 +21,12 @@ import { useProfileStore } from "@/lib/profileStore";
 import { useProfilePhotoStore } from "@/lib/profilePhotoStore";
 import { useSettingsStore } from "@/lib/settingsStore";
 import { loadProfileFromSupabase } from "@/lib/supabase/profilePersistence";
+import { useBattleStatsStore } from "@/lib/battleStatsStore";
 import SidebarProfileMenu from "@/components/SidebarProfileMenu";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/quiz", label: "Play Quiz", icon: BrainCircuit },
+  { href: "/quiz", label: "Trivia Journey", icon: BrainCircuit },
   { href: "/battle", label: "1v1 Battle", icon: Swords },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/trivia", label: "Trivia Hub", icon: Sparkles },
@@ -37,6 +38,7 @@ export default function Sidebar() {
   const { displayName, tier, setProfile } = useProfileStore();
   const { setPhoto } = useProfilePhotoStore();
   const { setAllSettings } = useSettingsStore();
+  const importLegacySessions = useBattleStatsStore((state) => state.importLegacySessions);
   const hydratedRef = useRef(false);
   const {
     isCollapsed,
@@ -50,6 +52,7 @@ export default function Sidebar() {
     hydratedRef.current = true;
 
     const hydrateProfile = async () => {
+      importLegacySessions();
       const persisted = await loadProfileFromSupabase();
       if (!persisted) return;
 
@@ -71,7 +74,7 @@ export default function Sidebar() {
     };
 
     void hydrateProfile();
-  }, [setAllSettings, setPhoto, setProfile]);
+  }, [importLegacySessions, setAllSettings, setPhoto, setProfile]);
 
   useEffect(() => {
     const onShortcut = (event: KeyboardEvent) => {

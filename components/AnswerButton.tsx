@@ -36,16 +36,16 @@ export default function AnswerButton({
       disabled={disabled}
       onClick={onClick}
       className={cx(
-        "answer-btn focus-ring arcade-btn h-full min-h-[52px] rounded-card border p-2 text-center sm:min-h-[60px] sm:p-2.5",
-        "flex flex-col items-center justify-center gap-1.5",
+        "answer-btn focus-ring arcade-btn h-full min-h-[88px] rounded-card border p-3 text-center sm:min-h-[110px] sm:p-3.5",
+        "flex flex-col items-center justify-center gap-2",
         stateClass,
         disabled && "cursor-not-allowed"
       )}
     >
-      <span className="grid h-6 w-6 place-items-center rounded-full border border-black/10 bg-black/10 text-[9px] font-semibold text-[var(--text-primary)] dark:border-white/20 dark:bg-black/30 dark:text-white">
+      <span className="grid h-7 w-7 place-items-center rounded-full border border-black/10 bg-black/10 text-[10px] font-semibold text-[var(--text-primary)] dark:border-white/20 dark:bg-black/30 dark:text-white sm:h-8 sm:w-8 sm:text-xs">
         {label}
       </span>
-      <span className="max-w-[32ch] text-[11px] font-medium leading-snug sm:text-[12px]">{value}</span>
+      <span className="max-w-[34ch] text-[14px] font-medium leading-snug sm:text-[16px]">{value}</span>
     </button>
   );
 }
