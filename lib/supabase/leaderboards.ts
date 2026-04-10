@@ -2,6 +2,7 @@
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { scoreBattlePoints } from "@/lib/battlePoints";
+import type { ProfilePhotoValue } from "@/lib/profilePhotoStore";
 
 export type LeaderboardWindow = "global" | "daily" | "weekly";
 export type LeaderboardMode = "social" | "active";
@@ -10,6 +11,8 @@ export interface LeaderboardEntry {
   id: string;
   username: string;
   avatar: string;
+  avatarType: ProfilePhotoValue["type"];
+  avatarValue: string;
   points: number;
   rank: number;
   rankLabel: string;
@@ -80,7 +83,7 @@ const profileAvatarToText = (profile: ProfileRow) => {
   return initialsFromName(profile.display_name);
 };
 
-const toFallbackPlayerName = (profileKey: string) => `Player ${profileKey.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6).toUpperCase() || "Unknown"}`;
+const toFallbackPlayerName = (profileKey: string) => profileKey.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6).toUpperCase() || "Unknown";
 
 const asNumber = (value: unknown) => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -205,6 +208,8 @@ export const fetchBattleLeaderboard = async (
         id: profileKey,
         username: profile?.display_name ?? toFallbackPlayerName(profileKey),
         avatar: profile ? profileAvatarToText(profile) : "PL",
+        avatarType: profile?.avatar_type ?? "initials",
+        avatarValue: profile?.avatar_value ?? initialsFromName(profile?.display_name ?? profileKey),
         points: stats.points,
         rank: 0,
         rankLabel: toRankLabel(stats.points, true),
@@ -319,6 +324,8 @@ export const fetchTriviaJourneyLeaderboard = async (
         id: profileKey,
         username: profile?.display_name ?? toFallbackPlayerName(profileKey),
         avatar: profile ? profileAvatarToText(profile) : "PL",
+        avatarType: profile?.avatar_type ?? "initials",
+        avatarValue: profile?.avatar_value ?? initialsFromName(profile?.display_name ?? profileKey),
         points: stats.points,
         rank: 0,
         rankLabel: toRankLabel(stats.points, false),

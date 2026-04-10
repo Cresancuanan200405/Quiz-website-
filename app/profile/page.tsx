@@ -18,7 +18,6 @@ import { persistProfileToSupabase } from "@/lib/supabase/profilePersistence";
 import { usePlayerStatsStore } from "@/lib/playerStatsStore";
 import { useTriviaFactsStore } from "@/lib/triviaFactsStore";
 import { useBattleStatsStore } from "@/lib/battleStatsStore";
-import { useAuthStore } from "@/lib/authStore";
 import type { ProfileTab } from "@/lib/types";
 import { cx } from "@/lib/utils";
 
@@ -78,7 +77,6 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const { displayName, handle, bio, tags, tier, setProfile } = useProfileStore();
-  const authUser = useAuthStore((state) => state.user);
   const { pushNotification } = useNotificationStore();
   const { photo } = useProfilePhotoStore();
   const { showOnlineStatus } = useSettingsStore();
@@ -199,6 +197,15 @@ export default function ProfilePage() {
 
   const unlockedAchievementItems = achievementWallItems.filter((item) => item.unlocked);
   const unlockedAchievementCount = unlockedAchievementItems.length;
+
+  const groupedProfileTags = useMemo(() => {
+    const visibleTags = new Set(isEditing ? selectedTags : tags);
+
+    return Object.entries(profileTagLibrary).map(([title, options]) => ({
+      title,
+      tags: options.filter((tag) => visibleTags.has(tag)),
+    }));
+  }, [isEditing, selectedTags, tags]);
 
   const validateUsername = (value: string) => {
     const newErrors = { ...errors };
@@ -334,6 +341,27 @@ export default function ProfilePage() {
                     <PenSquare className="h-3.5 w-3.5" />
                   </button>
                 ) : null}
+                {isEditing ? (
+                  <div className="absolute right-3 top-3 z-20 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={Object.keys(errors).length > 0}
+                      className="focus-ring flex items-center gap-2 rounded-lg border border-green-400/55 bg-green-500/20 px-3 py-2 text-xs font-semibold text-green-100 shadow-[0_0_14px_rgba(34,197,94,0.3)] hover:bg-green-500/28 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      className="focus-ring flex items-center gap-2 rounded-lg border border-red-400/55 bg-red-500/15 px-3 py-2 text-xs font-semibold text-red-100 shadow-[0_0_14px_rgba(248,113,113,0.28)] hover:bg-red-500/22"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Cancel
+                    </button>
+                  </div>
+                ) : null}
                 <div className="relative mx-auto w-fit">
                   <div className="absolute inset-0 rounded-full bg-violet-400/25 blur-xl" />
                   {!isEditing && showOnlineStatus ? (
@@ -427,7 +455,7 @@ export default function ProfilePage() {
                   ) : (
                     <>
                       <h1 className="font-sora text-5xl font-bold leading-none tracking-tight text-slate-900 dark:text-white/95">{displayName}</h1>
-                      <p className="mt-2 text-3xl text-slate-600 dark:text-white/65">{handle} • {authUser?.email || "No email linked"}</p>
+                      <p className="mt-2 text-3xl text-slate-600 dark:text-white/65">{handle}</p>
                       <p className="mt-3 rounded-2xl border border-violet-300/35 bg-white/60 px-4 py-3 text-left text-sm leading-relaxed text-slate-700 dark:border-white/15 dark:bg-black/20 dark:text-white/75">
                         {bio || "No bio yet. Edit your profile to add one."}
                       </p>
@@ -555,27 +583,6 @@ export default function ProfilePage() {
                   </div>
                 </article>
 
-                {isEditing ? (
-                  <div className="ml-auto flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleSave}
-                      disabled={Object.keys(errors).length > 0}
-                      className="focus-ring flex items-center gap-2 rounded-lg border border-green-400/55 bg-green-500/20 px-4 py-2.5 text-sm font-semibold text-green-100 shadow-[0_0_14px_rgba(34,197,94,0.3)] hover:bg-green-500/28 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <Check className="h-4 w-4" />
-                      Save Changes
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCancel}
-                      className="focus-ring flex items-center gap-2 rounded-lg border border-red-400/55 bg-red-500/15 px-4 py-2.5 text-sm font-semibold text-red-100 shadow-[0_0_14px_rgba(248,113,113,0.28)] hover:bg-red-500/22"
-                    >
-                      <X className="h-4 w-4" />
-                      Cancel
-                    </button>
-                  </div>
-                ) : null}
               </div>
             </div>
 
@@ -599,6 +606,28 @@ export default function ProfilePage() {
                 ))}
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="glass rounded-card border border-violet-300/30 bg-gradient-to-r from-violet-100 via-violet-50 to-cyan-100 p-4 shadow-[0_0_14px_rgba(129,140,248,0.12)] dark:from-violet-500/12 dark:via-violet-500/6 dark:to-cyan-500/10 dark:shadow-[0_0_14px_rgba(129,140,248,0.18)]">
+          <h2 className="mb-3 font-sora text-lg font-semibold text-[var(--text-primary)]">Profile Tags</h2>
+          <div className="space-y-3">
+            {groupedProfileTags.map((group) => (
+              <article key={`my-profile-${group.title}`} className="rounded-xl border border-black/8 bg-white/65 p-3 dark:border-white/10 dark:bg-white/5">
+                <h3 className="mb-2 text-xs uppercase tracking-[0.2em] text-[var(--text-secondary)]">{group.title}</h3>
+                <div className="flex flex-wrap gap-2">
+                  {group.tags.length ? (
+                    group.tags.map((tag) => (
+                      <span key={`${group.title}-${tag}`} className="rounded-full border border-violet-300/35 bg-violet-500/14 px-2.5 py-1 text-xs text-violet-700 dark:text-violet-100">
+                        {tag}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-[var(--text-secondary)]">No {group.title.toLowerCase()} selected.</span>
+                  )}
+                </div>
+              </article>
+            ))}
           </div>
         </section>
 

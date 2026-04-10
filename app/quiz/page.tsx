@@ -1084,7 +1084,7 @@ function QuizPageContent() {
                           Trivia Journey
                         </h1>
                         <p className="max-w-2xl text-sm leading-6 text-[var(--text-secondary)] sm:text-[15px]">
-                          Choose a realm, lock in a difficulty path, and progress through a polished quiz campaign built like a modern glassmorphic experience.
+                          Choose a realm, commit to a difficulty path, and conquer each run to rise through ranks, unlock achievements, and build your legend.
                         </p>
                       </div>
 

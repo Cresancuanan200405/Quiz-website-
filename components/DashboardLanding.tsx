@@ -6,6 +6,7 @@ import { ArrowRight, Award, Crown, Flame, Shield, ShieldCheck, Swords, Target, T
 import { AnimatePresence, motion } from "framer-motion";
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
+import ProfilePhoto from "@/components/ProfilePhoto";
 import CategoryCard from "@/components/CategoryCard";
 import FactCard from "@/components/FactCard";
 import StatCard from "@/components/StatCard";
@@ -80,6 +81,8 @@ export default function DashboardLanding() {
         id: myProfileKey,
         username: displayName,
         avatar: dashboardAvatar,
+        avatarType: photo.type,
+        avatarValue: photo.value,
         points: totalPoints,
         rank: 1,
         rankLabel: totalPoints >= 16000 ? "Legendary" : totalPoints >= 14500 ? "Expert" : totalPoints >= 12500 ? "Pro" : "Rising",
@@ -87,7 +90,7 @@ export default function DashboardLanding() {
         activityCount: quizzesCompleted,
       },
     ],
-    [dashboardAccuracy, dashboardAvatar, displayName, myProfileKey, quizzesCompleted, totalPoints]
+    [dashboardAccuracy, dashboardAvatar, displayName, myProfileKey, photo.type, photo.value, quizzesCompleted, totalPoints]
   );
 
   const battleWinRate = battlesPlayed > 0 ? Math.round((wins / battlesPlayed) * 100) : 0;
@@ -97,6 +100,8 @@ export default function DashboardLanding() {
         id: myProfileKey,
         username: displayName,
         avatar: dashboardAvatar,
+        avatarType: photo.type,
+        avatarValue: photo.value,
         points: totalBattlePoints,
         rank: 1,
         rankLabel: totalBattlePoints >= 9800 ? "Legendary" : totalBattlePoints >= 8200 ? "Expert" : totalBattlePoints >= 6400 ? "Pro" : "Rising",
@@ -104,7 +109,7 @@ export default function DashboardLanding() {
         activityCount: battlesPlayed,
       },
     ],
-    [battleWinRate, battlesPlayed, dashboardAvatar, displayName, myProfileKey, totalBattlePoints]
+    [battleWinRate, battlesPlayed, dashboardAvatar, displayName, myProfileKey, photo.type, photo.value, totalBattlePoints]
   );
 
   const [triviaPreviewRows, setTriviaPreviewRows] = useState<LeaderboardEntry[]>(fallbackTriviaPreviewRows);
@@ -313,22 +318,28 @@ export default function DashboardLanding() {
               </div>
             </div>
 
-            <article className="glass rounded-card border border-black/10 bg-gradient-to-br from-white/80 via-white/60 to-violet-100/30 p-5 shadow-[0_16px_30px_rgba(15,23,42,0.12)] transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_36px_rgba(99,102,241,0.2)] dark:border-white/10 dark:bg-gradient-to-br dark:from-slate-900/72 dark:via-slate-900/52 dark:to-violet-900/22 dark:shadow-[0_18px_36px_rgba(2,8,25,0.42)]">
-              <p className="mb-4 font-sora text-lg font-semibold dark:text-white text-gray-900">1v1 Quick Start</p>
-              <div className="mb-4 grid grid-cols-3 items-center text-center">
+            <article className="glass rounded-[22px] border border-black/10 bg-gradient-to-br from-white/82 via-white/65 to-violet-100/28 p-6 shadow-[0_16px_30px_rgba(15,23,42,0.12)] transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_36px_rgba(99,102,241,0.2)] dark:border-white/10 dark:bg-gradient-to-br dark:from-slate-900/74 dark:via-slate-900/56 dark:to-violet-900/24 dark:shadow-[0_18px_36px_rgba(2,8,25,0.42)]">
+              <p className="mb-5 font-sora text-4xl font-semibold dark:text-white text-gray-900">1v1 Quick Start</p>
+              <div className="mb-6 grid grid-cols-3 items-center text-center">
                 <div className="grid place-items-center gap-2">
-                  <span className="grid h-12 w-12 place-items-center rounded-full bg-violet-500/20 font-semibold text-violet-700 dark:text-violet-200">{dashboardAvatar}</span>
-                  <span className="text-xs dark:text-white/70 text-gray-600">You</span>
+                  <ProfilePhoto
+                    photo={photo}
+                    fallbackText={displayName}
+                    className="h-[72px] w-[72px] border-[3px] border-violet-300/70"
+                    textClassName="text-2xl"
+                    neon
+                  />
+                  <span className="text-xl dark:text-white/70 text-gray-600">You</span>
                 </div>
-                <span className="font-sora text-2xl font-bold text-violet-700 dark:text-violet-300">VS</span>
+                <span className="font-sora text-6xl font-bold text-violet-700 dark:text-violet-300">VS</span>
                 <div className="grid place-items-center gap-2">
-                  <span className="grid h-12 w-12 place-items-center rounded-full dark:bg-white/10 bg-black/5 font-semibold dark:text-white/70 text-gray-600">?</span>
-                  <span className="text-xs dark:text-white/70 text-gray-600">Opponent</span>
+                  <span className="grid h-[72px] w-[72px] place-items-center rounded-full dark:bg-white/10 bg-black/5 text-4xl font-semibold dark:text-white/70 text-gray-600">?</span>
+                  <span className="text-xl dark:text-white/70 text-gray-600">Opponent</span>
                 </div>
               </div>
-              <p className="mb-4 text-sm dark:text-white/70 text-gray-600">{onlinePlayers.toLocaleString()} players online now.</p>
-              <Link href="/battle" className="focus-ring arcade-btn btn-success inline-flex items-center gap-2 rounded-button px-4 py-2 text-sm font-medium">
-                <Swords className="h-4 w-4" /> Find Opponent
+              <p className="mb-5 text-3xl dark:text-white/70 text-gray-600">{onlinePlayers.toLocaleString()} players online now.</p>
+              <Link href="/battle" className="focus-ring inline-flex items-center gap-2 rounded-2xl border border-emerald-400/45 bg-gradient-to-r from-emerald-500 to-emerald-600 px-7 py-4 text-3xl font-semibold text-white shadow-[0_16px_30px_rgba(16,185,129,0.3)] transition hover:-translate-y-0.5 hover:shadow-[0_22px_34px_rgba(16,185,129,0.38)]">
+                <Swords className="h-5 w-5" /> Find Opponent
               </Link>
             </article>
           </section>
@@ -387,20 +398,35 @@ export default function DashboardLanding() {
                 ))}
               </div>
 
+              <div className="mb-2 grid grid-cols-[72px_minmax(0,1fr)_180px_140px] gap-2 px-2 text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
+                <span>Rank</span>
+                <span>Player</span>
+                <span>{leaderboardMode === "battle" ? "Battle Points" : "Journey Points"}</span>
+                <span>Tier</span>
+              </div>
+
               <div className="space-y-2">
                 {activePreviewRows.map((row) => (
                   <Link key={`active-preview-${leaderboardMode}-${row.id}`} href={`/player/${encodeURIComponent(row.id)}`} className="focus-ring block rounded-xl">
-                    <div className={`grid grid-cols-[44px_minmax(0,1fr)_86px] items-center gap-2 rounded-xl border px-2.5 py-2 ${row.id === myProfileKey ? (leaderboardMode === "battle" ? "border-cyan-400/35 bg-cyan-500/10" : "border-violet-400/35 bg-violet-500/10") : "border-black/8 bg-white/55 dark:border-white/10 dark:bg-white/5"}`}>
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">#{row.rank}</p>
+                    <div className={`grid grid-cols-[72px_minmax(0,1fr)_180px_140px] items-center gap-2 rounded-2xl border px-3 py-3 ${row.id === myProfileKey ? (leaderboardMode === "battle" ? "border-cyan-400/45 bg-cyan-500/10" : "border-violet-400/45 bg-violet-500/10") : "border-black/8 bg-white/60 dark:border-white/10 dark:bg-white/5"}`}>
+                      <p className="text-2xl">{row.rank === 1 ? "🥇" : row.rank === 2 ? "🥈" : row.rank === 3 ? "🥉" : `#${row.rank}`}</p>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-[var(--text-primary)]">{row.username}</p>
-                        <p className="text-[11px] text-[var(--text-secondary)]">
-                          {row.activityCount} {leaderboardMode === "battle" ? "battles" : "journeys"} · {row.accuracy}% {leaderboardMode === "battle" ? "win" : "acc"}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <ProfilePhoto
+                            photo={{ type: row.avatarType, value: row.avatarValue }}
+                            fallbackText={row.username}
+                            className="h-7 w-7 border border-violet-300/55"
+                            textClassName="text-xs"
+                          />
+                          <p className="truncate text-2xl font-medium text-[var(--text-primary)]">{row.username}</p>
+                        </div>
+                        <p className="text-[13px] text-[var(--text-secondary)]">{row.activityCount} {leaderboardMode === "battle" ? "battles" : "journeys"}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-[var(--text-primary)]">{row.points}</p>
-                        <p className="text-[11px] text-[var(--text-secondary)]">{row.rankLabel}</p>
+                      <div>
+                        <p className="text-4xl font-semibold text-[var(--text-primary)]">{row.points.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="inline-flex rounded-full border border-black/10 bg-black/5 px-3 py-1 text-xl text-[var(--text-secondary)] dark:border-white/15 dark:bg-white/5">{row.rankLabel}</p>
                       </div>
                     </div>
                   </Link>
