@@ -6,12 +6,29 @@ import { Swords, LoaderCircle, Image, CircleCheck, Type, Flame, BookOpen, Sparkl
 import CategoryCard from "@/components/CategoryCard";
 import ProfilePhoto from "@/components/ProfilePhoto";
 import Timer from "@/components/Timer";
-import { categoryMeta, leaderboardUsers, questions } from "@/lib/mockData";
+import { categoryMeta, questions } from "@/lib/mockData";
 import type { BattleState } from "@/lib/types";
 import AnswerButton from "@/components/AnswerButton";
 import { useProfilePhotoStore } from "@/lib/profilePhotoStore";
 import { useProfileStore } from "@/lib/profileStore";
-import { loadBattleOpponentsFromSupabase, persistBattleSessionToSupabase } from "@/lib/supabase/battlePersistence";
+import {
+  createBattleQueueMatchInSupabase,
+  heartbeatBattleQueueEntryInSupabase,
+  loadBattleMatchScoreStateFromSupabase,
+  loadBattleQuestionsFromSupabase,
+  loadBattleQueueFromSupabase,
+  loadOwnBattleQueueStateFromSupabase,
+  markBattleQueueFinishedInSupabase,
+  markBattleQueueLiveAccuracyAndStreakInSupabase,
+  markBattleQueueLiveScoreInSupabase,
+  markBattleQueueMatchReadyInSupabase,
+  markBattleQueueSurrenderInSupabase,
+  persistBattleSessionToSupabase,
+  removeBattleQueueEntryFromSupabase,
+  removeBattleQueueMatchByTokenInSupabase,
+  storeBattleQuestionsInSupabase,
+  upsertBattleQueueEntryInSupabase,
+} from "@/lib/supabase/battlePersistence";
 import { useSettingsStore } from "@/lib/settingsStore";
 import { useBattleStatsStore } from "@/lib/battleStatsStore";
 import { cx } from "@/lib/utils";
@@ -111,6 +128,7 @@ interface RoundBurst {
 }
 
 interface BattleOpponent {
+  profileKey?: string;
   username: string;
   rank: string;
   photo: {
@@ -125,6 +143,12 @@ interface QueuePlayer extends BattleOpponent {
   preferredCategory: string;
   waitingSeconds: number;
 }
+
+const DEFAULT_OPPONENT: BattleOpponent = {
+  username: "RogueNeuron",
+  rank: "Pro",
+  photo: { type: "initials", value: "RN" },
+};
 
 const battleModes: BattleMode[] = [
   {
@@ -169,6 +193,16 @@ const battleModes: BattleMode[] = [
   },
 ];
 
+const isBattleModeId = (value: string): value is BattleModeId =>
+  battleModes.some((mode) => mode.id === value);
+
+const getQueueCategoryLabel = (category: string | null) => {
+  if (!category) return null;
+  if (category === RANDOM_CATEGORY_ID) return "Random";
+  const found = categoryMeta.find((item) => item.name === category);
+  return found?.name ?? null;
+};
+
 const shuffleArray = <T,>(items: T[]) => {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -176,6 +210,36 @@ const shuffleArray = <T,>(items: T[]) => {
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
+};
+
+const takeUniqueItems = <T,>(groups: T[][], amount: number, keyFn: (item: T) => string) => {
+  const picked: T[] = [];
+  const seen = new Set<string>();
+
+  for (const group of groups) {
+    for (const item of shuffleArray(group)) {
+      const key = keyFn(item);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      picked.push(item);
+      if (picked.length >= amount) {
+        return picked.slice(0, amount);
+      }
+    }
+  }
+
+  if (!picked.length) {
+    return [];
+  }
+
+  while (picked.length < amount) {
+    for (const item of shuffleArray(picked)) {
+      picked.push(item);
+      if (picked.length >= amount) break;
+    }
+  }
+
+  return picked.slice(0, amount);
 };
 
 const normalizeWord = (value: string) => value.replace(/[^a-zA-Z]/g, "").toUpperCase();
@@ -249,10 +313,10 @@ const buildPicsWordImageUrls = (targetWord: string, categoryName: string, questi
 
   const distinctTerms = Array.from(new Set([targetWord.toLowerCase(), ...answerTerms, ...semanticTerms])).slice(0, 6);
   const queryVariants = [
-    `${distinctTerms[0] ?? targetWord.toLowerCase()},portrait`,
-    `${distinctTerms[1] ?? distinctTerms[0] ?? targetWord.toLowerCase()},symbol`,
-    `${distinctTerms[2] ?? distinctTerms[0] ?? targetWord.toLowerCase()},scene`,
-    `${distinctTerms[3] ?? distinctTerms[0] ?? targetWord.toLowerCase()},artifact`,
+    `${distinctTerms[0] ?? targetWord.toLowerCase()},${categoryName.toLowerCase()},${distinctTerms[1] ?? "concept"}`,
+    `${distinctTerms[1] ?? targetWord.toLowerCase()},${categoryName.toLowerCase()},${distinctTerms[2] ?? "topic"}`,
+    `${distinctTerms[2] ?? targetWord.toLowerCase()},${categoryName.toLowerCase()},${distinctTerms[3] ?? "detail"}`,
+    `${distinctTerms[3] ?? targetWord.toLowerCase()},${categoryName.toLowerCase()},${distinctTerms[0] ?? "clue"}`,
   ];
 
   const seed = Math.floor(Math.random() * 100000);
@@ -272,6 +336,12 @@ const isSimpleQuestionText = (value: string) => {
   const wordCount = normalized.split(" ").filter(Boolean).length;
   const hasTrickyTerms = /\b(except|least|most|incorrect|false|never|always|not)\b/i.test(normalized);
   return wordCount <= 14 && !hasTrickyTerms;
+};
+
+const hasCategorySemanticMatch = (categoryName: string, text: string) => {
+  const hints = categorySemanticHints[categoryName] ?? [categoryName.toLowerCase()];
+  const normalized = text.toLowerCase();
+  return hints.some((hint) => normalized.includes(hint.toLowerCase()));
 };
 
 const getPicsFallbackImage = (categoryName: string, index: number) => {
@@ -310,13 +380,6 @@ const getBattlePoints = (timeSpent: number, streakAfter: number, totalSeconds: n
   };
 };
 
-const getOpponentTimeSpent = (totalSeconds: number) => {
-  const safeTotal = Math.max(2, totalSeconds);
-  const lower = Math.max(1, Math.floor(safeTotal * 0.22));
-  const upper = Math.max(lower + 1, Math.floor(safeTotal * 0.88));
-  return Math.min(safeTotal - 1, Math.max(1, Math.floor(lower + Math.random() * (upper - lower))));
-};
-
 const formatElapsedTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -324,12 +387,53 @@ const formatElapsedTime = (seconds: number) => {
 };
 
 const toTrueFalseQuestion = (question: PreparedBattleQuestion): PreparedBattleQuestion => {
-  const incorrectOption = question.options.find((option) => option !== question.correctAnswer) ?? question.correctAnswer;
+  const text = question.question.replace(/\?+$/g, "").trim();
+  const correctAnswer = question.correctAnswer.trim();
+
+  const toDeclarativeStatement = (prompt: string, answer: string) => {
+    const normalized = prompt.replace(/\?+$/g, "").trim();
+
+    const standsFor = normalized.match(/^what\s+does\s+(.+?)\s+stand\s+for$/i);
+    if (standsFor?.[1]) {
+      return `${standsFor[1]} stands for ${answer}.`;
+    }
+
+    const whatIs = normalized.match(/^what\s+(?:is|are)\s+(.+)$/i);
+    if (whatIs?.[1]) {
+      return `${whatIs[1]} is ${answer}.`;
+    }
+
+    const inWhatYear = normalized.match(/^in\s+what\s+year\s+(.+)$/i);
+    if (inWhatYear?.[1]) {
+      return `${inWhatYear[1]} happened in ${answer}.`;
+    }
+
+    const who = normalized.match(/^who\s+(.+)$/i);
+    if (who?.[1]) {
+      return `${answer} ${who[1]}.`;
+    }
+
+    const howMany = normalized.match(/^how\s+many\s+(.+)$/i);
+    if (howMany?.[1]) {
+      return `The number of ${howMany[1]} is ${answer}.`;
+    }
+
+    const which = normalized.match(/^which\s+(.+)$/i);
+    if (which?.[1]) {
+      return `The correct ${which[1]} is ${answer}.`;
+    }
+
+    return `${normalized} is ${answer}.`;
+  };
+
+  const incorrectOption = question.options.find((opt) => opt !== correctAnswer)?.trim() ?? "Unknown";
+  const trueStatement = toDeclarativeStatement(text, correctAnswer);
+  const falseStatement = toDeclarativeStatement(text, incorrectOption);
   const showsCorrectAnswer = Math.random() > 0.5;
-  const displayedAnswer = showsCorrectAnswer ? question.correctAnswer : incorrectOption;
+  const displayedStatement = showsCorrectAnswer ? trueStatement : falseStatement;
 
   return {
-    question: `${question.question} Answer: ${displayedAnswer}`,
+    question: displayedStatement,
     options: ["True", "False"],
     correctAnswer: showsCorrectAnswer ? "True" : "False",
   };
@@ -346,17 +450,12 @@ const buildLocalBattleQuestions = (categoryName: string, modeId: BattleModeId, a
 
   const categoryPool = questions.filter((question) => question.category === selectedCategory.name);
   const easyCategoryPool = categoryPool.filter((item) => item.difficulty === "Easy");
-  const easyGlobalPool = questions.filter((item) => item.difficulty === "Easy");
   const simpleEasyCategoryPool = easyCategoryPool.filter((item) => isSimpleQuestionText(item.question));
-  const simpleEasyGlobalPool = easyGlobalPool.filter((item) => isSimpleQuestionText(item.question));
-  const fallbackPool =
-    simpleEasyCategoryPool.length ? simpleEasyCategoryPool :
-    simpleEasyGlobalPool.length ? simpleEasyGlobalPool :
-    easyCategoryPool.length ? easyCategoryPool :
-    easyGlobalPool.length ? easyGlobalPool :
-    categoryPool.length ? categoryPool :
-    questions;
-  const picked = shuffleArray(fallbackPool).slice(0, amount);
+  const picked = takeUniqueItems(
+    [simpleEasyCategoryPool, easyCategoryPool, categoryPool],
+    amount,
+    (item) => `${item.question}::${item.correctAnswer}`
+  );
 
   const preparedQuestions = picked.map((question) => {
     if (modeId === "pics-word") {
@@ -407,8 +506,16 @@ const buildBattleQuestions = async (categoryName: string, modeId: BattleModeId, 
     if (!Array.isArray(data) || !data.length) return local;
 
     const easyData = data.filter((item) => (item.difficulty ?? "easy").toLowerCase() === "easy");
-    const simpleEasyData = easyData.filter((item) => isSimpleQuestionText(item.question.text));
-    const sourceData = simpleEasyData.length ? simpleEasyData : easyData;
+    const relevantEasyData = easyData.filter((item) => {
+      const corpus = `${item.question.text} ${item.correctAnswer} ${(item.incorrectAnswers ?? []).join(" ")}`;
+      return hasCategorySemanticMatch(local.resolvedCategoryName, corpus);
+    });
+    const simpleRelevantData = relevantEasyData.filter((item) => isSimpleQuestionText(item.question.text));
+    const sourceData = takeUniqueItems(
+      [simpleRelevantData, relevantEasyData, easyData, data],
+      amount,
+      (item) => `${item.question.text}::${item.correctAnswer}`
+    );
     if (!sourceData.length) return local;
 
     const onlineQuestions: PreparedBattleQuestion[] = sourceData.map((item) => {
@@ -433,7 +540,11 @@ const buildBattleQuestions = async (categoryName: string, modeId: BattleModeId, 
       return question;
     });
 
-    const merged = [...onlineQuestions, ...local.questions].slice(0, amount);
+    const merged = takeUniqueItems(
+      [onlineQuestions, local.questions],
+      amount,
+      (item) => `${item.question}::${item.correctAnswer}`
+    );
     return {
       resolvedCategoryName: local.resolvedCategoryName,
       questions: merged,
@@ -473,7 +584,8 @@ export default function BattleArena() {
   const [isPreparingMatch, setIsPreparingMatch] = useState(false);
   const [picsSelectedIndices, setPicsSelectedIndices] = useState<number[]>([]);
   const [picsShake, setPicsShake] = useState(false);
-  const [usedHintIndices, setUsedHintIndices] = useState<number[]>([]);
+  const [lockedHintCount, setLockedHintCount] = useState(0);
+  const [picsBankOrder, setPicsBankOrder] = useState<number[]>([]);
   const [currentHintPenalty, setCurrentHintPenalty] = useState(0);
   const [pendingHintDebt, setPendingHintDebt] = useState(0);
   const [matchElapsedSeconds, setMatchElapsedSeconds] = useState(0);
@@ -482,18 +594,24 @@ export default function BattleArena() {
   const [zoomedImage, setZoomedImage] = useState<{ url: string; alt: string } | null>(null);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
   const [hasSurrendered, setHasSurrendered] = useState(false);
+  const [opponentSurrendered, setOpponentSurrendered] = useState(false);
+  const [isAwaitingOpponentFinish, setIsAwaitingOpponentFinish] = useState(false);
+  const [resolvedOpponentFinalScore, setResolvedOpponentFinalScore] = useState<number | null>(null);
+  const [resolvedFinalWinner, setResolvedFinalWinner] = useState<"you" | "opponent" | "draw" | null>(null);
   const [queuePlayers, setQueuePlayers] = useState<QueuePlayer[]>([]);
   const [isQueueLoading, setIsQueueLoading] = useState(false);
   const [selectedQueuePlayer, setSelectedQueuePlayer] = useState<QueuePlayer | null>(null);
   const [queuedOpponentOverride, setQueuedOpponentOverride] = useState<BattleOpponent | null>(null);
+  const [activeMatchToken, setActiveMatchToken] = useState<string | null>(null);
+  const [matchStartsAtIso, setMatchStartsAtIso] = useState<string | null>(null);
   const [selectedMode, setSelectedMode] = useState<BattleModeId | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [resolvedCategoryName, setResolvedCategoryName] = useState<string | null>(null);
   const [battleQuestions, setBattleQuestions] = useState<PreparedBattleQuestion[]>([]);
   const [matchedOpponent, setMatchedOpponent] = useState<BattleOpponent>({
-    username: "RogueNeuron",
-    rank: "Pro",
-    photo: { type: "initials", value: "RN" },
+    username: DEFAULT_OPPONENT.username,
+    rank: DEFAULT_OPPONENT.rank,
+    photo: DEFAULT_OPPONENT.photo,
   });
 
   const persistedBattleKeyRef = useRef<string | null>(null);
@@ -501,6 +619,12 @@ export default function BattleArena() {
   const arenaRef = useRef<HTMLElement | null>(null);
   const forfeitRecordedRef = useRef(false);
   const roundStartedAtRef = useRef<number | null>(null);
+  const matchmakingLockRef = useRef(false);
+  const finishSubmittedRef = useRef(false);
+  const syncedLiveScoreRef = useRef<number>(-1);
+  const questionsLoadedForMatchRef = useRef<string | null>(null);
+  const preparedBattleQuestionsRef = useRef<PreparedBattleQuestion[] | null>(null);
+  const preparedResolvedCategoryRef = useRef<string | null>(null);
 
   const activeMode = useMemo(
     () => battleModes.find((mode) => mode.id === selectedMode) ?? null,
@@ -529,10 +653,24 @@ export default function BattleArena() {
   const isPicsWordMode = activeMode?.id === "pics-word";
 
   const toBattleOpponent = useCallback((player: QueuePlayer): BattleOpponent => ({
+    profileKey: player.id,
     username: player.username,
     rank: player.rank,
     photo: player.photo,
   }), []);
+
+  const toQueueProfileSnapshot = useCallback((player: QueuePlayer) => ({
+    profileKey: player.id,
+    username: player.username,
+    tier: player.rank,
+    photo: player.photo,
+  }), []);
+
+  const syncCountdownFromStart = useCallback((startsAtIso: string) => {
+    const remaining = Math.max(1, Math.ceil((new Date(startsAtIso).getTime() - Date.now()) / 1000));
+    setMatchStartsAtIso(startsAtIso);
+    setCountdown(remaining);
+  }, []);
 
   const battleSummary = useMemo(() => {
     const totalRounds = roundResults.length || 1;
@@ -560,74 +698,46 @@ export default function BattleArena() {
     };
   }, [battleQuestions.length, opponentCorrectCount, opponentScore, roundResults, youCorrectCount, youScore]);
 
-  const pickFallbackOpponent = useCallback((): BattleOpponent => {
-    const candidateOpponents = leaderboardUsers.filter((user) => user.username.toLowerCase() !== displayName.toLowerCase());
-    const randomOpponent = candidateOpponents[Math.floor(Math.random() * candidateOpponents.length)];
-
-    if (!randomOpponent) {
-      return {
-        username: "RogueNeuron",
-        rank: "Pro",
-        photo: { type: "initials", value: "RN" },
-      };
-    }
-
-    return {
-      username: randomOpponent.username,
-      rank: randomOpponent.tier,
-      photo: { type: "initials", value: randomOpponent.avatar },
-    };
-  }, [displayName]);
-
-  const pickOpponent = useCallback(async (): Promise<BattleOpponent> => {
-    const supabaseOpponents = await loadBattleOpponentsFromSupabase();
-    if (!supabaseOpponents.length) return pickFallbackOpponent();
-
-    const randomOpponent = supabaseOpponents[Math.floor(Math.random() * supabaseOpponents.length)];
-    if (!randomOpponent) return pickFallbackOpponent();
-
-    return {
-      username: randomOpponent.username,
-      rank: randomOpponent.tier,
-      photo: randomOpponent.photo,
-    };
-  }, [pickFallbackOpponent]);
+  const finalOpponentScore = resolvedOpponentFinalScore ?? opponentScore;
+  const finalWinner = resolvedFinalWinner ?? (youScore === finalOpponentScore ? "draw" : youScore > finalOpponentScore ? "you" : "opponent");
 
   const loadQueuePlayers = useCallback(async () => {
+    if (!selectedMode || !selectedCategoryLabel) {
+      setQueuePlayers([]);
+      return;
+    }
+
     setIsQueueLoading(true);
     try {
-      const supabaseOpponents = await loadBattleOpponentsFromSupabase();
-      const normalizedSource: Array<{ id: string; username: string; tier: string; photo: BattleOpponent["photo"] }> = supabaseOpponents.length
-        ? supabaseOpponents
-            .map((player) => ({
-              id: player.profileKey,
-              username: player.username,
-              tier: player.tier,
-              photo: player.photo,
-            }))
-        : leaderboardUsers.filter((user) => user.username.toLowerCase() !== displayName.toLowerCase()).map((user) => ({
-            id: user.id,
-            username: user.username,
-            tier: user.tier,
-            photo: { type: "initials" as const, value: user.avatar },
-          }));
-
-      const shuffled = shuffleArray(normalizedSource).slice(0, 8);
-      const queued = shuffled.map((player, idx) => ({
-        id: player.id,
-        username: player.username,
-        rank: player.tier,
-        photo: player.photo,
-        preferredMode: battleModes[(idx + 1) % battleModes.length].id,
-        preferredCategory: categoryMeta[idx % categoryMeta.length]?.name ?? "Science",
-        waitingSeconds: 6 + ((idx + 2) * 9),
-      }));
-
-      setQueuePlayers(queued);
+      const queued = await loadBattleQueueFromSupabase(selectedMode, selectedCategoryLabel);
+      setQueuePlayers(
+        queued.map((player) => ({
+          id: player.profileKey,
+          username: player.username,
+          rank: player.tier,
+          photo: player.photo,
+          preferredMode: isBattleModeId(player.mode) ? player.mode : "classic",
+          preferredCategory: player.category,
+          waitingSeconds: player.waitingSeconds,
+        }))
+      );
     } finally {
       setIsQueueLoading(false);
     }
-  }, [displayName]);
+  }, [selectedCategoryLabel, selectedMode]);
+
+  const leaveActiveQueue = useCallback(() => {
+    setQueuePlayers([]);
+    setSelectedQueuePlayer(null);
+    setQueuedOpponentOverride(null);
+    setMatchStartsAtIso(null);
+    if (activeMatchToken) {
+      void removeBattleQueueMatchByTokenInSupabase(activeMatchToken);
+      setActiveMatchToken(null);
+      return;
+    }
+    void removeBattleQueueEntryFromSupabase();
+  }, [activeMatchToken]);
 
   const persistForfeitResult = useCallback(() => {
     if (forfeitRecordedRef.current || !selectedMode) return;
@@ -654,6 +764,7 @@ export default function BattleArena() {
   }, [battleCategoryLabel, matchedOpponent.username, opponentScore, recordBattleSession, selectedCategory, selectedCategoryLabel, selectedMode, youScore]);
 
   const confirmLeaveBattle = () => {
+    leaveActiveQueue();
     persistForfeitResult();
     const href = pendingLeaveHref;
     setShowLeaveConfirm(false);
@@ -672,34 +783,48 @@ export default function BattleArena() {
     setPendingLeaveHref(null);
   };
 
-  const advanceRound = useCallback(() => {
-    if (index >= battleQuestions.length - 1) {
+  const advanceRound = useCallback((nextAnsweredRoundMap?: Record<number, { answer: string | null; correct: boolean }>, currentRoundIndex?: number) => {
+    const totalRounds = battleQuestions.length;
+    if (!totalRounds) {
       setState("finished");
       return;
     }
-    setIndex((i) => i + 1);
-    setSelected(null);
-    setRevealed(false);
-    setResolvingRound(false);
-    setRoundBurst(null);
-    setUsedHintIndices([]);
-    setCurrentHintPenalty(0);
-    roundStartedAtRef.current = Date.now();
-  }, [battleQuestions.length, index]);
+
+    const resolvedAnsweredMap = nextAnsweredRoundMap ?? answeredRoundMap;
+    const resolvedIndex = currentRoundIndex ?? index;
+
+    for (let offset = 1; offset <= totalRounds; offset += 1) {
+      const candidate = (resolvedIndex + offset) % totalRounds;
+      if (!resolvedAnsweredMap[candidate]) {
+        setIndex(candidate);
+        setSelected(null);
+        setRevealed(false);
+        setResolvingRound(false);
+        setRoundBurst(null);
+        setLockedHintCount(0);
+        setCurrentHintPenalty(0);
+        roundStartedAtRef.current = Date.now();
+        return;
+      }
+    }
+
+    setState("finished");
+  }, [answeredRoundMap, battleQuestions.length, index]);
 
   const jumpToRound = useCallback((roundIndex: number) => {
     setIndex(Math.max(0, Math.min(roundIndex, Math.max(0, battleQuestions.length - 1))));
   }, [battleQuestions.length]);
-
-  const finishBattle = useCallback(() => {
-    setState("finished");
-  }, []);
 
   const surrenderBattle = useCallback(() => {
     if (state !== "playing") return;
     setShowSurrenderConfirm(false);
     setHasSurrendered(true);
     persistForfeitResult();
+    void markBattleQueueSurrenderInSupabase().then((token) => {
+      if (token) {
+        setActiveMatchToken(token);
+      }
+    });
     setOpponentScore((score) => Math.max(score, youScore + 120));
     setState("finished");
   }, [persistForfeitResult, state, youScore]);
@@ -717,37 +842,31 @@ export default function BattleArena() {
       const appliedPenalty = userCorrect ? Math.min(userCalc.points, pendingHintDebt) : 0;
       const userPoints = userCorrect ? Math.max(0, userCalc.points - appliedPenalty) : 0;
 
-      const opponentCorrect = Math.random() > 0.35;
-      const opponentTimeSpent = opponentCorrect ? getOpponentTimeSpent(totalSeconds) : totalSeconds;
-      const nextOpponentStreak = opponentCorrect ? opponentStreak + 1 : 0;
-      const opponentCalc = opponentCorrect
-        ? getBattlePoints(opponentTimeSpent, nextOpponentStreak, totalSeconds)
-        : { points: 0, speedScore: 0, streakMultiplier: 1 };
-      const opponentPoints = opponentCalc.points;
+      const opponentCorrect = false;
+      const opponentTimeSpent = totalSeconds;
+      const nextOpponentStreak = opponentStreak;
 
       setResolvingRound(true);
       setRevealed(true);
       setRoundBurst({
         userPoints,
-        opponentPoints,
+        opponentPoints: 0,
         userMultiplier: userCalc.streakMultiplier,
-        opponentMultiplier: opponentCalc.streakMultiplier,
+        opponentMultiplier: 1,
         userHintPenalty: appliedPenalty,
       });
-      setAnsweredRoundMap((prev) => ({
-        ...prev,
+      const nextAnsweredRoundMap = {
+        ...answeredRoundMap,
         [index]: { answer: userAnswer, correct: userCorrect },
-      }));
+      };
+
+      setAnsweredRoundMap(nextAnsweredRoundMap);
       setPendingHintDebt(userCorrect ? pendingHintDebt - appliedPenalty : pendingHintDebt);
 
       setYouScore((score) => score + userPoints);
-      setOpponentScore((score) => score + opponentPoints);
       setYouCorrectCount((count) => count + (userCorrect ? 1 : 0));
-      setOpponentCorrectCount((count) => count + (opponentCorrect ? 1 : 0));
       setYouStreak(nextYouStreak);
-      setOpponentStreak(nextOpponentStreak);
       setBestYouStreak((best) => Math.max(best, nextYouStreak));
-      setBestOpponentStreak((best) => Math.max(best, nextOpponentStreak));
       setRoundResults((results) => [
         ...results,
         {
@@ -763,7 +882,7 @@ export default function BattleArena() {
           opponentAnswer: opponentCorrect ? question.correctAnswer : null,
           opponentCorrect,
           opponentTimeSpent,
-          opponentPoints,
+          opponentPoints: 0,
           opponentStreakAfter: nextOpponentStreak,
         },
       ]);
@@ -771,8 +890,8 @@ export default function BattleArena() {
 
       setRoundNotification({
         title: userCorrect ? "Correct Answer" : "Incorrect Answer",
-        body: index >= battleQuestions.length - 1
-          ? "Final round completed."
+        body: Object.keys(nextAnsweredRoundMap).length >= battleQuestions.length
+          ? "All rounds completed."
           : userCorrect
             ? "Nice work! Moving to the next round..."
             : "Moving to the next question...",
@@ -782,11 +901,7 @@ export default function BattleArena() {
       if (shouldAutoAdvance) {
         const nextDelayMs = Math.max(1, nextQuestionDelaySeconds) * 1000;
         setTimeout(() => {
-          if (index >= battleQuestions.length - 1) {
-            setState("finished");
-            return;
-          }
-          advanceRound();
+          advanceRound(nextAnsweredRoundMap, index);
         }, nextDelayMs);
       }
     },
@@ -826,7 +941,6 @@ export default function BattleArena() {
 
     setResolvingRound(false);
     setRoundBurst(null);
-    setUsedHintIndices([]);
     setCurrentHintPenalty(0);
     setPicsSelectedIndices([]);
     roundStartedAtRef.current = Date.now();
@@ -871,31 +985,156 @@ export default function BattleArena() {
   }, [isBattleOngoing]);
 
   useEffect(() => {
-    if (state !== "searching") return;
-    const timer = setTimeout(() => {
-      setCountdown(5);
-      setState("found");
-    }, 1800);
-    return () => clearTimeout(timer);
-  }, [state]);
+    if (state !== "searching" || !selectedMode || !selectedCategoryLabel) return;
+
+    let isCancelled = false;
+
+    const pollQueue = async () => {
+      await heartbeatBattleQueueEntryInSupabase({
+        mode: selectedMode,
+        category: selectedCategoryLabel,
+      });
+
+      const ownQueue = await loadOwnBattleQueueStateFromSupabase();
+      if (isCancelled) return;
+
+      if (ownQueue?.queueState === "matched" && ownQueue.matchStartsAt && ownQueue.matchToken && ownQueue.opponent) {
+        setMatchedOpponent({
+          profileKey: ownQueue.opponent.profileKey,
+          username: ownQueue.opponent.username,
+          rank: ownQueue.opponent.tier,
+          photo: ownQueue.opponent.photo,
+        });
+        setHasSurrendered(false);
+        setOpponentSurrendered(false);
+        setActiveMatchToken(ownQueue.matchToken);
+        setQueuedOpponentOverride(null);
+        syncCountdownFromStart(ownQueue.matchStartsAt);
+        if (preparedBattleQuestionsRef.current?.length) {
+          void storeBattleQuestionsInSupabase({
+            matchToken: ownQueue.matchToken,
+            questions: preparedBattleQuestionsRef.current,
+            category: preparedResolvedCategoryRef.current ?? selectedCategoryLabel,
+            mode: selectedMode,
+          });
+        }
+        setState("found");
+        return;
+      }
+
+      const queued = await loadBattleQueueFromSupabase(selectedMode, selectedCategoryLabel);
+      if (isCancelled) return;
+
+      const normalizedQueue = queued.map((player) => ({
+        id: player.profileKey,
+        username: player.username,
+        rank: player.tier,
+        photo: player.photo,
+        preferredMode: isBattleModeId(player.mode) ? player.mode : "classic",
+        preferredCategory: player.category,
+        waitingSeconds: player.waitingSeconds,
+      }));
+
+      setQueuePlayers(normalizedQueue);
+
+      const pickedEntry = queuedOpponentOverride
+        ? normalizedQueue.find((player) => player.id === queuedOpponentOverride.profileKey)
+        : normalizedQueue[0];
+
+      if (!pickedEntry || matchmakingLockRef.current) return;
+
+      matchmakingLockRef.current = true;
+      try {
+        const createdMatch = await createBattleQueueMatchInSupabase({
+          mode: selectedMode,
+          category: selectedCategoryLabel,
+          opponent: toQueueProfileSnapshot(pickedEntry),
+          selfSnapshot: {
+            username: displayName,
+            tier,
+            photo: profilePhoto,
+          },
+        });
+
+        if (!createdMatch || isCancelled) return;
+
+        const nextOpponent = toBattleOpponent(pickedEntry);
+        setMatchedOpponent(nextOpponent);
+        setQueuedOpponentOverride(null);
+        setActiveMatchToken(createdMatch.matchToken);
+        syncCountdownFromStart(createdMatch.matchStartsAt);
+        if (preparedBattleQuestionsRef.current?.length) {
+          await storeBattleQuestionsInSupabase({
+            matchToken: createdMatch.matchToken,
+            questions: preparedBattleQuestionsRef.current,
+            category: preparedResolvedCategoryRef.current ?? selectedCategoryLabel,
+            mode: selectedMode,
+          });
+        }
+        setState("found");
+      } finally {
+        matchmakingLockRef.current = false;
+      }
+    };
+
+    void pollQueue();
+    const interval = setInterval(() => {
+      void pollQueue();
+    }, 2200);
+
+    return () => {
+      isCancelled = true;
+      matchmakingLockRef.current = false;
+      clearInterval(interval);
+    };
+  }, [
+    displayName,
+    profilePhoto,
+    queuedOpponentOverride,
+    selectedCategoryLabel,
+    selectedMode,
+    state,
+    syncCountdownFromStart,
+    tier,
+    toBattleOpponent,
+    toQueueProfileSnapshot,
+  ]);
 
   useEffect(() => {
     if (state !== "found") return;
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          setState("playing");
-          roundStartedAtRef.current = Date.now();
-          setMatchElapsedSeconds(0);
-          setTimeLeft(activeMode?.secondsPerRound ?? 12);
-          return 0;
+
+    const loadSharedQuestions = async () => {
+      if (activeMatchToken && questionsLoadedForMatchRef.current !== activeMatchToken) {
+        const loadedQuestions = await loadBattleQuestionsFromSupabase(activeMatchToken);
+        if (loadedQuestions && loadedQuestions.questions.length > 0) {
+          setBattleQuestions(loadedQuestions.questions);
+          setResolvedCategoryName(loadedQuestions.category);
+          questionsLoadedForMatchRef.current = activeMatchToken;
+          void markBattleQueueMatchReadyInSupabase(activeMatchToken);
         }
-        return prev - 1;
+      }
+    };
+
+    void loadSharedQuestions();
+
+    const interval = setInterval(() => {
+      if (activeMatchToken && questionsLoadedForMatchRef.current !== activeMatchToken) {
+        void loadSharedQuestions();
+      }
+
+      if (matchStartsAtIso) {
+        const remaining = Math.ceil((new Date(matchStartsAtIso).getTime() - Date.now()) / 1000);
+        setCountdown(Math.max(0, remaining));
+        return;
+      }
+
+      setCountdown((prev) => {
+        return Math.max(0, prev - 1);
       });
-    }, 1000);
+    }, 250);
+
     return () => clearInterval(interval);
-  }, [activeMode?.secondsPerRound, state]);
+  }, [activeMatchToken, activeMode?.secondsPerRound, matchStartsAtIso, state]);
 
   useEffect(() => {
     if (state !== "playing") return;
@@ -909,14 +1148,6 @@ export default function BattleArena() {
     if (setupTab !== "queue" || state !== "idle") return;
     void loadQueuePlayers();
   }, [loadQueuePlayers, setupTab, state]);
-
-  useEffect(() => {
-    if (setupTab !== "queue" || state !== "idle" || !queuePlayers.length) return;
-    const interval = setInterval(() => {
-      setQueuePlayers((current) => current.map((player) => ({ ...player, waitingSeconds: player.waitingSeconds + 1 })));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [queuePlayers.length, setupTab, state]);
 
   useEffect(() => {
     if (state !== "playing" || isPicsWordMode || revealed || resolvingRound) return;
@@ -940,13 +1171,64 @@ export default function BattleArena() {
     setTimeLeft(activeMode?.secondsPerRound ?? 12);
   }, [activeMode?.secondsPerRound, index, isPicsWordMode, state]);
 
-  const startSearch = async () => {
-    if (!selectedMode || !selectedCategory) return;
+  const startSearch = async (overrides?: { mode?: BattleModeId; category?: string; opponent?: BattleOpponent | null }) => {
+    const modeToUse = overrides?.mode ?? selectedMode;
+    const categoryToUse = overrides?.category ?? selectedCategory;
+    const categoryLabelToUse = getQueueCategoryLabel(categoryToUse);
+    if (!modeToUse || !categoryToUse || !categoryLabelToUse) return;
+
+    const modeDetails = battleModes.find((mode) => mode.id === modeToUse);
     setIsPreparingMatch(true);
+    setActiveMatchToken(null);
+    setMatchStartsAtIso(null);
 
     try {
-      const prepared = await buildBattleQuestions(selectedCategory, selectedMode, selectedQuestionCount);
+      const prepared = await buildBattleQuestions(categoryToUse, modeToUse, selectedQuestionCount);
       if (!prepared.questions.length) return;
+
+      preparedBattleQuestionsRef.current = prepared.questions;
+      preparedResolvedCategoryRef.current = prepared.resolvedCategoryName;
+
+      await upsertBattleQueueEntryInSupabase({
+        mode: modeToUse,
+        category: categoryLabelToUse,
+        displayName,
+        tier,
+        photo: profilePhoto,
+      });
+
+      const overrideOpponent = overrides?.opponent ?? queuedOpponentOverride;
+      if (overrideOpponent?.profileKey) {
+        const immediateMatch = await createBattleQueueMatchInSupabase({
+          mode: modeToUse,
+          category: categoryLabelToUse,
+          opponent: {
+            profileKey: overrideOpponent.profileKey,
+            username: overrideOpponent.username,
+            tier: overrideOpponent.rank,
+            photo: overrideOpponent.photo,
+          },
+          selfSnapshot: {
+            username: displayName,
+            tier,
+            photo: profilePhoto,
+          },
+        });
+
+        if (immediateMatch) {
+          setActiveMatchToken(immediateMatch.matchToken);
+          syncCountdownFromStart(immediateMatch.matchStartsAt);
+          await storeBattleQuestionsInSupabase({
+            matchToken: immediateMatch.matchToken,
+            questions: preparedBattleQuestionsRef.current ?? prepared.questions,
+            category: preparedResolvedCategoryRef.current ?? categoryLabelToUse,
+            mode: modeToUse,
+          });
+        }
+      }
+
+      setSelectedMode(modeToUse);
+      setSelectedCategory(categoryToUse);
 
       setBattleQuestions(prepared.questions);
       setResolvedCategoryName(prepared.resolvedCategoryName);
@@ -965,25 +1247,31 @@ export default function BattleArena() {
       setBestOpponentStreak(0);
       setRoundResults([]);
       setRoundBurst(null);
-      setUsedHintIndices([]);
       setCurrentHintPenalty(0);
       setPendingHintDebt(0);
       setAnsweredRoundMap({});
       setShowSurrenderConfirm(false);
       setHasSurrendered(false);
+      setOpponentSurrendered(false);
+      setIsAwaitingOpponentFinish(false);
+      setResolvedOpponentFinalScore(null);
+      setResolvedFinalWinner(null);
       setShowLeaveConfirm(false);
       setPendingLeaveHref(null);
       forfeitRecordedRef.current = false;
+      finishSubmittedRef.current = false;
+      questionsLoadedForMatchRef.current = null;
+      syncedLiveScoreRef.current = -1;
       setRoundNotification(null);
       setZoomedImage(null);
       setSelectedQueuePlayer(null);
       setMatchElapsedSeconds(0);
-      setTimeLeft(activeMode?.secondsPerRound ?? 12);
+      setTimeLeft(modeDetails?.secondsPerRound ?? 12);
       setCountdown(5);
-      if (queuedOpponentOverride) {
-        setMatchedOpponent(queuedOpponentOverride);
+      if (overrideOpponent) {
+        setMatchedOpponent(overrideOpponent);
       } else {
-        void pickOpponent().then((opponent) => setMatchedOpponent(opponent));
+        setMatchedOpponent(DEFAULT_OPPONENT);
       }
     } finally {
       setIsPreparingMatch(false);
@@ -991,6 +1279,7 @@ export default function BattleArena() {
   };
 
   const resetToSetup = () => {
+    leaveActiveQueue();
     setState("idle");
     setSetupTab("mode");
     setIndex(0);
@@ -1007,12 +1296,15 @@ export default function BattleArena() {
     setBestOpponentStreak(0);
     setRoundResults([]);
     setRoundBurst(null);
-    setUsedHintIndices([]);
     setCurrentHintPenalty(0);
     setPendingHintDebt(0);
     setAnsweredRoundMap({});
     setShowSurrenderConfirm(false);
     setHasSurrendered(false);
+    setOpponentSurrendered(false);
+    setIsAwaitingOpponentFinish(false);
+    setResolvedOpponentFinalScore(null);
+    setResolvedFinalWinner(null);
     setResolvedCategoryName(null);
     setMatchElapsedSeconds(0);
     setTimeLeft(activeMode?.secondsPerRound ?? 12);
@@ -1024,7 +1316,150 @@ export default function BattleArena() {
     setSelectedQueuePlayer(null);
     setQueuedOpponentOverride(null);
     forfeitRecordedRef.current = false;
+    finishSubmittedRef.current = false;
+    questionsLoadedForMatchRef.current = null;
+    preparedBattleQuestionsRef.current = null;
+    preparedResolvedCategoryRef.current = null;
+    syncedLiveScoreRef.current = -1;
   };
+
+  useEffect(() => {
+    if (state !== "idle") return;
+    leaveActiveQueue();
+  }, [leaveActiveQueue, state]);
+
+  useEffect(() => {
+    if (state !== "found" && state !== "playing" && !(state === "finished" && isAwaitingOpponentFinish)) return;
+
+    let isCancelled = false;
+
+    const pollMatchState = async () => {
+      const ownQueue = await loadOwnBattleQueueStateFromSupabase();
+      if (isCancelled || !ownQueue) return;
+
+      if (!activeMatchToken && ownQueue.matchToken) {
+        setActiveMatchToken(ownQueue.matchToken);
+      }
+
+      if (state === "found" && ownQueue.matchStartsAt) {
+        syncCountdownFromStart(ownQueue.matchStartsAt);
+      }
+
+      const matchToken = activeMatchToken ?? ownQueue.matchToken;
+      if (matchToken) {
+        const matchState = await loadBattleMatchScoreStateFromSupabase(matchToken);
+        if (isCancelled || !matchState) return;
+        setOpponentScore(matchState.opponentLiveScore);
+        setOpponentCorrectCount(matchState.opponentLiveAccuracy > 0 && roundResults.length > 0 
+          ? Math.round((matchState.opponentLiveAccuracy / 100) * roundResults.length) 
+          : 0);
+        setOpponentStreak(matchState.opponentLiveStreak);
+
+        if (matchState.surrendered && matchState.surrenderedByProfileKey && matchState.surrenderedByProfileKey !== matchState.selfProfileKey) {
+          setShowSurrenderConfirm(false);
+          setHasSurrendered(false);
+          setOpponentSurrendered(true);
+          setYouScore((score) => Math.max(score, matchState.opponentLiveScore + 120));
+          setRoundNotification({
+            title: "Opponent Surrendered",
+            body: `${matchedOpponent.username} surrendered. You win by default.`,
+          });
+          setState("finished");
+          return;
+        }
+
+        if (state === "found" && matchState.selfReady && matchState.opponentReady) {
+          const hasReachedStart = !matchStartsAtIso || new Date(matchStartsAtIso).getTime() <= Date.now();
+          if (hasReachedStart) {
+            setState("playing");
+            roundStartedAtRef.current = Date.now();
+            setMatchElapsedSeconds(0);
+            setTimeLeft(activeMode?.secondsPerRound ?? 12);
+            return;
+          }
+        }
+      }
+
+      if (!ownQueue.surrendered || !ownQueue.surrenderedByProfileKey) return;
+      if (ownQueue.surrenderedByProfileKey === ownQueue.profileKey) return;
+
+      setShowSurrenderConfirm(false);
+      setHasSurrendered(false);
+      setOpponentSurrendered(true);
+      setYouScore((score) => Math.max(score, opponentScore + 120));
+      setRoundNotification({
+        title: "Opponent Surrendered",
+        body: `${matchedOpponent.username} surrendered. You win by default.`,
+      });
+      setState("finished");
+    };
+
+    void pollMatchState();
+    const interval = setInterval(() => {
+      void pollMatchState();
+    }, 1100);
+
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
+  }, [activeMatchToken, activeMode?.secondsPerRound, isAwaitingOpponentFinish, matchedOpponent.username, matchStartsAtIso, opponentScore, roundResults.length, state, syncCountdownFromStart]);
+
+  useEffect(() => {
+    if (state !== "playing" || !activeMatchToken) return;
+    if (syncedLiveScoreRef.current === youScore) return;
+    syncedLiveScoreRef.current = youScore;
+    void markBattleQueueLiveScoreInSupabase(youScore);
+  }, [activeMatchToken, state, youScore]);
+
+  useEffect(() => {
+    if (state !== "playing" || !activeMatchToken) return;
+    const liveAccuracy = roundResults.length > 0 ? Math.round((youCorrectCount / roundResults.length) * 100) : 0;
+    void markBattleQueueLiveAccuracyAndStreakInSupabase(liveAccuracy, youStreak);
+  }, [activeMatchToken, state, youCorrectCount, youStreak, roundResults.length]);
+
+  useEffect(() => {
+    if (state !== "finished" || hasSurrendered || opponentSurrendered) return;
+
+    if (!activeMatchToken) {
+      setIsAwaitingOpponentFinish(false);
+      setResolvedOpponentFinalScore(opponentScore);
+      setResolvedFinalWinner(youScore === opponentScore ? "draw" : youScore > opponentScore ? "you" : "opponent");
+      return;
+    }
+
+    let isCancelled = false;
+
+    const syncFinalScores = async () => {
+      if (!finishSubmittedRef.current) {
+        finishSubmittedRef.current = true;
+        await markBattleQueueFinishedInSupabase(youScore);
+      }
+
+      const matchState = await loadBattleMatchScoreStateFromSupabase(activeMatchToken);
+      if (isCancelled || !matchState) return;
+
+      if (!matchState.opponentFinished) {
+        setIsAwaitingOpponentFinish(true);
+        return;
+      }
+
+      const syncedOpponentScore = matchState.opponentScore ?? opponentScore;
+      setResolvedOpponentFinalScore(syncedOpponentScore);
+      setResolvedFinalWinner(youScore === syncedOpponentScore ? "draw" : youScore > syncedOpponentScore ? "you" : "opponent");
+      setIsAwaitingOpponentFinish(false);
+    };
+
+    void syncFinalScores();
+    const interval = setInterval(() => {
+      void syncFinalScores();
+    }, 1100);
+
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
+  }, [activeMatchToken, hasSurrendered, opponentScore, opponentSurrendered, state, youScore]);
 
   useEffect(() => {
     if (state !== "finished" || !selectedMode || !selectedCategory) return;
@@ -1035,13 +1470,17 @@ export default function BattleArena() {
     if (persistedBattleKeyRef.current === battleKey) return;
     persistedBattleKeyRef.current = battleKey;
 
-    const result = youScore > opponentScore ? "win" : youScore < opponentScore ? "loss" : "draw";
+    const hasResolvedWinner = opponentSurrendered || resolvedFinalWinner !== null || !activeMatchToken;
+    if (!hasResolvedWinner) return;
+
+    const persistedOpponentScore = opponentSurrendered ? opponentScore : finalOpponentScore;
+    const result = finalWinner === "you" ? "win" : finalWinner === "opponent" ? "loss" : "draw";
     recordBattleSession({
       mode: selectedMode,
       category: playedCategory,
       result,
       userScore: youScore,
-      opponentScore,
+      opponentScore: persistedOpponentScore,
       opponentName: matchedOpponent.username,
     });
 
@@ -1050,10 +1489,10 @@ export default function BattleArena() {
       category: playedCategory,
       result,
       userScore: youScore,
-      opponentScore,
+      opponentScore: persistedOpponentScore,
       opponentName: matchedOpponent.username,
     });
-  }, [battleCategoryLabel, battleQuestions.length, hasSurrendered, matchedOpponent.username, opponentScore, recordBattleSession, selectedCategory, selectedCategoryLabel, selectedMode, state, youScore]);
+  }, [activeMatchToken, battleCategoryLabel, battleQuestions.length, finalOpponentScore, finalWinner, hasSurrendered, matchedOpponent.username, opponentScore, opponentSurrendered, recordBattleSession, resolvedFinalWinner, selectedCategory, selectedCategoryLabel, selectedMode, state, youScore]);
 
   const chooseAnswer = (value: string) => {
     if (revealed || state !== "playing" || !question || answeredRoundMap[index]) return;
@@ -1065,38 +1504,26 @@ export default function BattleArena() {
 
   const usePicsHint = () => {
     if (!currentPicsPuzzle || state !== "playing" || revealed || resolvingRound) return;
+    if (lockedHintCount > 0) return;
     const targetChars = currentPicsPuzzle.targetWord.split("");
 
-    const candidateSlots = targetChars
-      .map((char, slotIndex) => ({ char, slotIndex }))
-      .filter(({ slotIndex, char }) => {
-        const currentChar = picsPickedLetters[slotIndex] ?? null;
-        return currentChar !== char;
-      });
+    const hintChars = targetChars.slice(0, Math.min(2, targetChars.length));
+    const hintedIndices: number[] = [];
 
-    if (!candidateSlots.length) return;
-
-    const selectedSlot = candidateSlots[Math.floor(Math.random() * candidateSlots.length)];
-    const bankIndex = currentPicsPuzzle.letterBank.findIndex(
-      (char, idx) => char === selectedSlot.char && !picsSelectedIndices.includes(idx) && !usedHintIndices.includes(idx)
-    );
-
-    if (bankIndex < 0) return;
-
-    const nextSelection = [...picsSelectedIndices];
-    if (selectedSlot.slotIndex >= nextSelection.length) {
-      while (nextSelection.length < selectedSlot.slotIndex) {
-        const filler = currentPicsPuzzle.letterBank.findIndex((_, idx) => !nextSelection.includes(idx) && idx !== bankIndex);
-        if (filler < 0) break;
-        nextSelection.push(filler);
-      }
-      nextSelection.push(bankIndex);
-    } else {
-      nextSelection[selectedSlot.slotIndex] = bankIndex;
+    for (const hintChar of hintChars) {
+      const bankIndex = currentPicsPuzzle.letterBank.findIndex(
+        (char, idx) => char === hintChar && !picsSelectedIndices.includes(idx) && !hintedIndices.includes(idx)
+      );
+      if (bankIndex >= 0) hintedIndices.push(bankIndex);
     }
 
-    setPicsSelectedIndices(nextSelection.slice(0, currentPicsPuzzle.targetWord.length));
-    setUsedHintIndices((prev) => [...prev, bankIndex]);
+    if (!hintedIndices.length) return;
+
+    setPicsSelectedIndices((prev) => {
+      const remaining = prev.filter((idx) => !hintedIndices.includes(idx));
+      return [...hintedIndices, ...remaining].slice(0, currentPicsPuzzle.targetWord.length);
+    });
+    setLockedHintCount(hintedIndices.length);
     setCurrentHintPenalty((value) => value + 25);
 
     const hintCost = 25;
@@ -1126,18 +1553,34 @@ export default function BattleArena() {
 
   const removePicsLetterAt = (slotIndex: number) => {
     if (state !== "playing" || revealed || resolvingRound) return;
+    if (slotIndex < lockedHintCount) return;
     setPicsSelectedIndices((prev) => prev.filter((_, indexInSelection) => indexInSelection !== slotIndex));
   };
 
   const clearPicsSelection = () => {
     if (state !== "playing" || revealed || resolvingRound) return;
-    setPicsSelectedIndices([]);
+    setPicsSelectedIndices((prev) => prev.slice(0, lockedHintCount));
+  };
+
+  const shufflePicsLetters = () => {
+    if (!currentPicsPuzzle || state !== "playing" || revealed || resolvingRound) return;
+
+    setPicsBankOrder((prev) => {
+      const baseOrder = prev.length ? prev : currentPicsPuzzle.letterBank.map((_, idx) => idx);
+      const selectedSet = new Set(picsSelectedIndices);
+      const unlocked = baseOrder.filter((idx) => !selectedSet.has(idx));
+      const shuffled = shuffleArray(unlocked);
+      let pointer = 0;
+      return baseOrder.map((idx) => (selectedSet.has(idx) ? idx : shuffled[pointer++]));
+    });
   };
 
   useEffect(() => {
     setPicsSelectedIndices([]);
     setPicsShake(false);
-  }, [index, state]);
+    setLockedHintCount(0);
+    setPicsBankOrder(currentPicsPuzzle ? currentPicsPuzzle.letterBank.map((_, idx) => idx) : []);
+  }, [currentPicsPuzzle, index, state]);
 
   useEffect(() => {
     if (!currentPicsPuzzle || state !== "playing" || revealed || resolvingRound) return;
@@ -1145,7 +1588,10 @@ export default function BattleArena() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Backspace") {
         event.preventDefault();
-        setPicsSelectedIndices((prev) => prev.slice(0, -1));
+        setPicsSelectedIndices((prev) => {
+          if (prev.length <= lockedHintCount) return prev;
+          return prev.slice(0, -1);
+        });
         return;
       }
 
@@ -1165,7 +1611,7 @@ export default function BattleArena() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [currentPicsPuzzle, picsSelectedIndices, resolvingRound, revealed, state]);
+  }, [currentPicsPuzzle, lockedHintCount, picsSelectedIndices, resolvingRound, revealed, state]);
 
   useEffect(() => {
     if (!currentPicsPuzzle || state !== "playing" || revealed || resolvingRound) return;
@@ -1420,7 +1866,7 @@ export default function BattleArena() {
                       </div>
                     ) : (
                       <div className="grid place-items-center py-8 text-sm text-[var(--text-secondary)]">
-                        No players are currently waiting. Try refreshing.
+                        No active players for {activeMode?.label ?? "your selected mode"} • {selectedCategoryLabel ?? "selected category"}.
                       </div>
                     )}
                   </div>
@@ -1751,7 +2197,8 @@ export default function BattleArena() {
                   </div>
 
                   <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-7">
-                    {currentPicsPuzzle.letterBank.map((char, bankIndex) => {
+                    {(picsBankOrder.length ? picsBankOrder : currentPicsPuzzle.letterBank.map((_, idx) => idx)).map((bankIndex) => {
+                      const char = currentPicsPuzzle.letterBank[bankIndex];
                       const used = picsSelectedIndices.includes(bankIndex);
                       return (
                         <button
@@ -1778,12 +2225,22 @@ export default function BattleArena() {
                       <button
                         type="button"
                         onClick={usePicsHint}
-                        disabled={revealed || resolvingRound}
+                        disabled={revealed || resolvingRound || lockedHintCount > 0}
                         className="focus-ring arcade-btn grid h-9 w-9 place-items-center rounded-full border border-amber-500/50 bg-amber-100 text-amber-700 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.08)] dark:border-amber-400/35 dark:bg-amber-500/12 dark:text-amber-100"
                         aria-label="Use hint"
-                        title="Use hint (-25)"
+                        title={lockedHintCount > 0 ? "Hint already used this round" : "Use hint (-25)"}
                       >
                         <Lightbulb className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={shufflePicsLetters}
+                        disabled={revealed || resolvingRound}
+                        className="focus-ring arcade-btn grid h-9 w-9 place-items-center rounded-full border border-cyan-500/45 bg-cyan-100 text-cyan-700 dark:border-cyan-300/35 dark:bg-cyan-500/12 dark:text-cyan-100"
+                        aria-label="Shuffle letters"
+                        title="Shuffle letters"
+                      >
+                        <RefreshCw className="h-4 w-4" />
                       </button>
                       <button
                         type="button"
@@ -1824,10 +2281,10 @@ export default function BattleArena() {
               <div className="mt-3 flex justify-center gap-2">
                 <button
                   type="button"
-                  onClick={finishBattle}
+                  onClick={advanceRound}
                   className="focus-ring arcade-btn btn-primary inline-flex items-center gap-2 rounded-button px-4 py-2 text-sm font-semibold"
                 >
-                  Finish Match <ArrowRight className="h-4 w-4" />
+                  Continue <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
             ) : null}
@@ -1849,9 +2306,9 @@ export default function BattleArena() {
           <motion.div key="finished" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="relative z-[1] space-y-4">
             <section className={cx(
               "overflow-hidden rounded-[24px] border p-5 shadow-[0_18px_42px_rgba(15,23,42,0.18)] backdrop-blur-xl",
-              battleSummary.winner === "you"
+              finalWinner === "you"
                 ? "border-emerald-400/30 bg-emerald-500/10 dark:bg-emerald-500/10"
-                : battleSummary.winner === "opponent"
+                : finalWinner === "opponent"
                   ? "border-rose-400/30 bg-rose-500/10 dark:bg-rose-500/10"
                   : "border-amber-400/30 bg-amber-500/10 dark:bg-amber-500/10"
             )}>
@@ -1860,8 +2317,18 @@ export default function BattleArena() {
                   <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600 dark:border-white/15 dark:bg-white/10 dark:text-white/70">
                     <Crown className="h-3.5 w-3.5 text-violet-200" /> Match Complete
                   </p>
+                  {opponentSurrendered ? (
+                    <p className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/14 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-200">
+                      <Flag className="h-3 w-3" /> Opponent surrendered
+                    </p>
+                  ) : null}
+                  {isAwaitingOpponentFinish ? (
+                    <p className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-cyan-400/35 bg-cyan-500/12 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-100">
+                      <LoaderCircle className="h-3 w-3 animate-spin" /> Waiting for opponent to finish
+                    </p>
+                  ) : null}
                   <h2 className="font-sora text-3xl font-bold text-[var(--text-primary)] sm:text-4xl">
-                    {hasSurrendered ? "Surrendered" : battleSummary.winner === "you" ? "Victory" : battleSummary.winner === "opponent" ? "Defeat" : "Draw"}
+                    {hasSurrendered ? "Surrendered" : isAwaitingOpponentFinish ? "Awaiting Result" : finalWinner === "you" ? "Victory" : finalWinner === "opponent" ? "Defeat" : "Draw"}
                   </h2>
                   <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)] sm:text-base">
                     {selectedMode ? `${battleModes.find((mode) => mode.id === selectedMode)?.label ?? "Battle"} • ` : ""}
@@ -1876,8 +2343,11 @@ export default function BattleArena() {
                   <div className="rounded-[18px] border border-black/10 bg-white/70 p-4 text-center shadow-[0_10px_24px_rgba(15,23,42,0.12)] dark:border-white/15 dark:bg-white/5">
                     <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-[var(--text-muted)]">Winner</p>
                     <p className="mt-1 font-sora text-lg font-semibold text-[var(--text-primary)]">
-                      {battleSummary.winner === "you" ? displayName : battleSummary.winner === "opponent" ? matchedOpponent.username : "Tie"}
+                      {isAwaitingOpponentFinish ? "Pending" : finalWinner === "you" ? displayName : finalWinner === "opponent" ? matchedOpponent.username : "Tie"}
                     </p>
+                    {opponentSurrendered && finalWinner === "you" ? (
+                      <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-600 dark:text-emerald-300">Win by default</p>
+                    ) : null}
                   </div>
                   <div className="rounded-[18px] border border-black/10 bg-white/70 p-4 text-center shadow-[0_10px_24px_rgba(15,23,42,0.12)] dark:border-white/15 dark:bg-white/5">
                     <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-[var(--text-muted)]">Margin</p>
@@ -1898,7 +2368,7 @@ export default function BattleArena() {
                 </div>
                 <div className="rounded-[18px] border border-orange-400/25 bg-orange-500/10 p-4">
                   <p className="text-xs uppercase tracking-[0.16em] text-[var(--text-muted)]">Opponent Score</p>
-                  <p className="mt-1 font-sora text-3xl font-bold text-[var(--text-primary)]">{opponentScore}</p>
+                  <p className="mt-1 font-sora text-3xl font-bold text-[var(--text-primary)]">{finalOpponentScore}</p>
                   <p className="text-xs text-[var(--text-secondary)]">Accuracy {battleSummary.opponentAccuracy}% • Best streak {bestOpponentStreak}</p>
                 </div>
                 <div className="rounded-[18px] border border-emerald-400/25 bg-emerald-500/10 p-4">
@@ -2015,7 +2485,7 @@ export default function BattleArena() {
               <button
                 type="button"
                 aria-label="Rematch"
-                onClick={startSearch}
+                onClick={() => void startSearch()}
                 disabled={!selectedMode || !selectedCategory}
                 className={cx(
                   "focus-ring arcade-btn btn-primary rounded-button px-4 py-2 text-sm",
@@ -2138,15 +2608,18 @@ export default function BattleArena() {
                   type="button"
                   onClick={() => {
                     const opponent = toBattleOpponent(selectedQueuePlayer);
+                    const nextCategory = selectedQueuePlayer.preferredCategory === "Random"
+                      ? RANDOM_CATEGORY_ID
+                      : selectedQueuePlayer.preferredCategory;
                     setQueuedOpponentOverride(opponent);
                     setMatchedOpponent(opponent);
-                    setSelectedMode(selectedQueuePlayer.preferredMode);
-                    setSelectedCategory(selectedQueuePlayer.preferredCategory);
                     setSetupTab("category");
                     setSelectedQueuePlayer(null);
-                    setTimeout(() => {
-                      void startSearch();
-                    }, 0);
+                    void startSearch({
+                      mode: selectedQueuePlayer.preferredMode,
+                      category: nextCategory,
+                      opponent,
+                    });
                   }}
                   className="focus-ring arcade-btn btn-success rounded-button px-4 py-2 text-sm font-semibold"
                 >

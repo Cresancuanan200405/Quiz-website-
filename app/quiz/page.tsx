@@ -796,8 +796,6 @@ function QuizPageContent() {
     const categoryParam = searchParams.get("category");
     const difficultyParam = searchParams.get("difficulty") as Difficulty | null;
     const countParam = Number.parseInt(searchParams.get("count") ?? "", 10);
-    const replayParam = searchParams.get("replay");
-    const shouldResetReplayProgress = replayParam === "1" || replayParam === "true";
 
     let randomCategory = categoryParam ?? categoryMeta[Math.floor(Math.random() * categoryMeta.length)]?.name ?? "Science";
     if (forceRandomCategory && typeof window !== "undefined") {
@@ -812,10 +810,6 @@ function QuizPageContent() {
     const availableDifficulties = difficultyOptions.filter((difficulty) => unlockedDifficulties[difficulty]);
     const randomDifficulty = difficultyParam && unlockedDifficulties[difficultyParam] ? difficultyParam : availableDifficulties[Math.floor(Math.random() * availableDifficulties.length)] ?? "Easy";
     const quickQuestionCount = questionCountOptions.includes(countParam as (typeof questionCountOptions)[number]) ? countParam : 15;
-
-    if (typeof window !== "undefined" && shouldResetReplayProgress) {
-      window.localStorage.removeItem(`used-quiz-prompts:${randomCategory}:${randomDifficulty}`);
-    }
 
     void startQuizSession(randomCategory, randomDifficulty, quickQuestionCount);
   }, [hasStarted, searchParams, startQuizSession, unlockedDifficulties]);

@@ -318,27 +318,27 @@ export default function DashboardLanding() {
               </div>
             </div>
 
-            <article className="glass rounded-[22px] border border-black/10 bg-gradient-to-br from-white/82 via-white/65 to-violet-100/28 p-6 shadow-[0_16px_30px_rgba(15,23,42,0.12)] transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_36px_rgba(99,102,241,0.2)] dark:border-white/10 dark:bg-gradient-to-br dark:from-slate-900/74 dark:via-slate-900/56 dark:to-violet-900/24 dark:shadow-[0_18px_36px_rgba(2,8,25,0.42)]">
-              <p className="mb-5 font-sora text-4xl font-semibold dark:text-white text-gray-900">1v1 Quick Start</p>
-              <div className="mb-6 grid grid-cols-3 items-center text-center">
+            <article className="glass rounded-[22px] border border-black/10 bg-gradient-to-br from-white/82 via-white/65 to-violet-100/28 p-5 shadow-[0_16px_30px_rgba(15,23,42,0.12)] transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_36px_rgba(99,102,241,0.2)] dark:border-white/10 dark:bg-gradient-to-br dark:from-slate-900/74 dark:via-slate-900/56 dark:to-violet-900/24 dark:shadow-[0_18px_36px_rgba(2,8,25,0.42)]">
+              <p className="mb-4 font-sora text-2xl font-semibold dark:text-white text-gray-900">1v1 Quick Start</p>
+              <div className="mb-4 grid grid-cols-3 items-center text-center">
                 <div className="grid place-items-center gap-2">
                   <ProfilePhoto
                     photo={photo}
                     fallbackText={displayName}
-                    className="h-[72px] w-[72px] border-[3px] border-violet-300/70"
-                    textClassName="text-2xl"
+                    className="h-16 w-16 border-[3px] border-violet-300/70"
+                    textClassName="text-xl"
                     neon
                   />
-                  <span className="text-xl dark:text-white/70 text-gray-600">You</span>
+                  <span className="text-sm dark:text-white/70 text-gray-600">You</span>
                 </div>
-                <span className="font-sora text-6xl font-bold text-violet-700 dark:text-violet-300">VS</span>
+                <span className="font-sora text-4xl font-bold text-violet-700 dark:text-violet-300">VS</span>
                 <div className="grid place-items-center gap-2">
-                  <span className="grid h-[72px] w-[72px] place-items-center rounded-full dark:bg-white/10 bg-black/5 text-4xl font-semibold dark:text-white/70 text-gray-600">?</span>
-                  <span className="text-xl dark:text-white/70 text-gray-600">Opponent</span>
+                  <span className="grid h-16 w-16 place-items-center rounded-full dark:bg-white/10 bg-black/5 text-3xl font-semibold dark:text-white/70 text-gray-600">?</span>
+                  <span className="text-sm dark:text-white/70 text-gray-600">Opponent</span>
                 </div>
               </div>
-              <p className="mb-5 text-3xl dark:text-white/70 text-gray-600">{onlinePlayers.toLocaleString()} players online now.</p>
-              <Link href="/battle" className="focus-ring inline-flex items-center gap-2 rounded-2xl border border-emerald-400/45 bg-gradient-to-r from-emerald-500 to-emerald-600 px-7 py-4 text-3xl font-semibold text-white shadow-[0_16px_30px_rgba(16,185,129,0.3)] transition hover:-translate-y-0.5 hover:shadow-[0_22px_34px_rgba(16,185,129,0.38)]">
+              <p className="mb-4 text-xl dark:text-white/70 text-gray-600">{onlinePlayers.toLocaleString()} players online now.</p>
+              <Link href="/battle" className="focus-ring inline-flex items-center gap-2 rounded-2xl border border-emerald-400/45 bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-3 text-2xl font-semibold text-white shadow-[0_16px_30px_rgba(16,185,129,0.3)] transition hover:-translate-y-0.5 hover:shadow-[0_22px_34px_rgba(16,185,129,0.38)]">
                 <Swords className="h-5 w-5" /> Find Opponent
               </Link>
             </article>
