@@ -10,7 +10,7 @@ import { useBattleStatsStore } from "@/lib/battleStatsStore";
 import { useProfileStore } from "@/lib/profileStore";
 import { useProfilePhotoStore } from "@/lib/profilePhotoStore";
 import { fetchBattleLeaderboard, type LeaderboardEntry, type LeaderboardWindow } from "@/lib/supabase/leaderboards";
-import { getLocalProfileKey } from "@/lib/supabase/profileKey";
+import { getActiveProfileKey } from "@/lib/supabase/profileKey";
 
 export default function BattleLeaderboardPage() {
   const [activeTab, setActiveTab] = useState<LeaderboardWindow>("global");
@@ -24,7 +24,10 @@ export default function BattleLeaderboardPage() {
 
   useEffect(() => {
     const kickoff = window.setTimeout(() => {
-      setMyProfileKey(getLocalProfileKey());
+      void (async () => {
+        const profileKey = await getActiveProfileKey();
+        setMyProfileKey(profileKey);
+      })();
     }, 0);
 
     return () => window.clearTimeout(kickoff);

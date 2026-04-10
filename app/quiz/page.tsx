@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, Check, ChevronDown, Compass, Crown, Flag, Flame, Lock, Route, Sparkles, Target, X } from "lucide-react";
@@ -319,10 +319,14 @@ const categoryDescriptions: Record<string, { description: string }> = {
   Business: { description: "Markets, strategy, and entrepreneurial insights." },
 };
 
-export default function QuizPage() {
+function QuizPageContent() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isInstantRequest = useMemo(() => {
+    const instant = searchParams.get("instant");
+    return instant === "1" || instant === "true";
+  }, [searchParams]);
   const controlsRef = useRef<HTMLDivElement>(null);
   const bypassBackGuardRef = useRef(false);
   const nextQuestionDelaySeconds = useSettingsStore((state) => state.nextQuestionDelaySeconds);
@@ -351,6 +355,7 @@ export default function QuizPage() {
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [isPreparingQuiz, setIsPreparingQuiz] = useState(false);
+  const [showCampaignTools, setShowCampaignTools] = useState(false);
   const [activeCampaignModal, setActiveCampaignModal] = useState<"status" | "map" | "rules" | null>(null);
   const [pendingPath, setPendingPath] = useState<string | null>(null);
   const [insufficientQuestionsError, setInsufficientQuestionsError] = useState<string | null>(null);
@@ -786,27 +791,40 @@ export default function QuizPage() {
       return;
     }
 
+    const randomMode = searchParams.get("random");
+    const forceRandomCategory = randomMode === "1" || randomMode === "true";
     const categoryParam = searchParams.get("category");
     const difficultyParam = searchParams.get("difficulty") as Difficulty | null;
     const countParam = Number.parseInt(searchParams.get("count") ?? "", 10);
     const replayParam = searchParams.get("replay");
     const shouldResetReplayProgress = replayParam === "1" || replayParam === "true";
 
-    const randomCategory = categoryParam ?? categoryMeta[Math.floor(Math.random() * categoryMeta.length)]?.name ?? "Science";
+    let randomCategory = categoryParam ?? categoryMeta[Math.floor(Math.random() * categoryMeta.length)]?.name ?? "Science";
+    if (forceRandomCategory && typeof window !== "undefined") {
+      const lastInstantCategoryKey = "quizarena-last-instant-category";
+      const lastCategory = window.localStorage.getItem(lastInstantCategoryKey);
+      const categoryPool = categoryMeta.map((item) => item.name).filter((name) => name !== lastCategory);
+      const nextCategoryPool = categoryPool.length ? categoryPool : categoryMeta.map((item) => item.name);
+      randomCategory = nextCategoryPool[Math.floor(Math.random() * nextCategoryPool.length)] ?? randomCategory;
+      window.localStorage.setItem(lastInstantCategoryKey, randomCategory);
+    }
+
     const availableDifficulties = difficultyOptions.filter((difficulty) => unlockedDifficulties[difficulty]);
     const randomDifficulty = difficultyParam && unlockedDifficulties[difficultyParam] ? difficultyParam : availableDifficulties[Math.floor(Math.random() * availableDifficulties.length)] ?? "Easy";
-    const quickQuestionCount = questionCountOptions.includes(countParam as (typeof questionCountOptions)[number]) ? countParam : 10;
+    const quickQuestionCount = questionCountOptions.includes(countParam as (typeof questionCountOptions)[number]) ? countParam : 15;
 
     if (typeof window !== "undefined" && shouldResetReplayProgress) {
       window.localStorage.removeItem(`used-quiz-prompts:${randomCategory}:${randomDifficulty}`);
     }
 
-    const launchTimer = window.setTimeout(() => {
-        void startQuizSession(randomCategory, randomDifficulty, quickQuestionCount);
-      }, 0);
-
-    return () => window.clearTimeout(launchTimer);
+    void startQuizSession(randomCategory, randomDifficulty, quickQuestionCount);
   }, [hasStarted, searchParams, startQuizSession, unlockedDifficulties]);
+
+  useEffect(() => {
+    if (activeCampaignModal) {
+      setShowCampaignTools(true);
+    }
+  }, [activeCampaignModal]);
 
   useEffect(() => {
     if (!hasStarted) return;
@@ -935,6 +953,7 @@ export default function QuizPage() {
       done: hasStarted,
     },
   ] as const;
+  const showInstantBootLoader = isInstantRequest && !hasStarted && !insufficientQuestionsError;
 
   return (
     <div className="relative min-h-screen overflow-hidden text-[var(--text-primary)]">
@@ -958,68 +977,94 @@ export default function QuizPage() {
       >
         <div className="mx-auto flex min-h-0 w-full max-w-[1240px] flex-1 flex-col gap-3">
           {!hasStarted ? (
+            showInstantBootLoader ? (
+              <section className="glass mt-4 w-full rounded-[28px] border border-violet-400/20 p-6 text-center">
+                <p className="text-sm font-medium text-[var(--text-primary)]">Starting instant quiz...</p>
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">Preparing a random 15-question journey.</p>
+              </section>
+            ) : (
             <div className="grid gap-3 xl:grid-cols-[1.2fr_0.8fr]">
               <div className="pointer-events-none fixed right-10 top-[74px] z-50 flex gap-2 md:right-12 xl:right-[calc((100vw-1240px)/2+2.5rem)]">
-                <motion.button
+                <button
                   type="button"
-                  aria-label="Open campaign status"
-                  onClick={() => setActiveCampaignModal("status")}
-                  animate={{
-                    boxShadow: [
-                      "0 0 0 0 rgba(124,58,237,0), 0 0 14px rgba(124,58,237,0.16)",
-                      "0 0 0 5px rgba(124,58,237,0.12), 0 0 20px rgba(124,58,237,0.28)",
-                      "0 0 0 0 rgba(124,58,237,0), 0 0 14px rgba(124,58,237,0.16)",
-                    ],
-                  }}
-                  transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
-                  className={`pointer-events-auto focus-ring grid h-8 w-8 place-items-center rounded-lg border text-violet-700 hover:bg-violet-500/12 dark:text-violet-200 ${
-                    activeCampaignModal === "status"
-                      ? "border-violet-400/60 bg-violet-500/20"
-                      : "border-violet-400/30 bg-white/78 dark:bg-white/5"
-                  }`}
+                  aria-label="Toggle campaign tools"
+                  onClick={() => setShowCampaignTools((prev) => !prev)}
+                  className="pointer-events-auto focus-ring grid h-8 w-8 place-items-center rounded-lg border border-violet-400/55 bg-violet-500/20 text-violet-700 hover:bg-violet-500/28 dark:text-violet-100"
                 >
-                  <Target className="h-3.5 w-3.5" />
-                </motion.button>
-                <motion.button
-                  type="button"
-                  aria-label="Open campaign map"
-                  onClick={() => setActiveCampaignModal("map")}
-                  animate={{
-                    boxShadow: [
-                      "0 0 0 0 rgba(124,58,237,0), 0 0 14px rgba(124,58,237,0.16)",
-                      "0 0 0 5px rgba(124,58,237,0.12), 0 0 20px rgba(124,58,237,0.28)",
-                      "0 0 0 0 rgba(124,58,237,0), 0 0 14px rgba(124,58,237,0.16)",
-                    ],
-                  }}
-                  transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut", delay: 0.24 }}
-                  className={`pointer-events-auto focus-ring grid h-8 w-8 place-items-center rounded-lg border text-violet-700 hover:bg-violet-500/12 dark:text-violet-200 ${
-                    activeCampaignModal === "map"
-                      ? "border-violet-400/60 bg-violet-500/20"
-                      : "border-violet-400/30 bg-white/78 dark:bg-white/5"
-                  }`}
-                >
-                  <Route className="h-3.5 w-3.5" />
-                </motion.button>
-                <motion.button
-                  type="button"
-                  aria-label="Open unlock rules"
-                  onClick={() => setActiveCampaignModal("rules")}
-                  animate={{
-                    boxShadow: [
-                      "0 0 0 0 rgba(124,58,237,0), 0 0 14px rgba(124,58,237,0.16)",
-                      "0 0 0 5px rgba(124,58,237,0.12), 0 0 20px rgba(124,58,237,0.28)",
-                      "0 0 0 0 rgba(124,58,237,0), 0 0 14px rgba(124,58,237,0.16)",
-                    ],
-                  }}
-                  transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut", delay: 0.48 }}
-                  className={`pointer-events-auto focus-ring grid h-8 w-8 place-items-center rounded-lg border text-violet-700 hover:bg-violet-500/12 dark:text-violet-200 ${
-                    activeCampaignModal === "rules"
-                      ? "border-violet-400/60 bg-violet-500/20"
-                      : "border-violet-400/30 bg-white/78 dark:bg-white/5"
-                  }`}
-                >
-                  <Lock className="h-3.5 w-3.5" />
-                </motion.button>
+                  <Compass className="h-3.5 w-3.5" />
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {showCampaignTools ? (
+                    <motion.div
+                      initial={{ opacity: 0, x: 8, scale: 0.96 }}
+                      animate={{ opacity: 1, x: 0, scale: 1 }}
+                      exit={{ opacity: 0, x: 8, scale: 0.96 }}
+                      className="pointer-events-none flex gap-2"
+                    >
+                      <motion.button
+                        type="button"
+                        aria-label="Open campaign status"
+                        onClick={() => setActiveCampaignModal("status")}
+                        animate={{
+                          boxShadow: [
+                            "0 0 0 0 rgba(124,58,237,0), 0 0 14px rgba(124,58,237,0.16)",
+                            "0 0 0 5px rgba(124,58,237,0.12), 0 0 20px rgba(124,58,237,0.28)",
+                            "0 0 0 0 rgba(124,58,237,0), 0 0 14px rgba(124,58,237,0.16)",
+                          ],
+                        }}
+                        transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+                        className={`pointer-events-auto focus-ring grid h-8 w-8 place-items-center rounded-lg border text-violet-700 hover:bg-violet-500/12 dark:text-violet-200 ${
+                          activeCampaignModal === "status"
+                            ? "border-violet-400/60 bg-violet-500/20"
+                            : "border-violet-400/30 bg-white/78 dark:bg-white/5"
+                        }`}
+                      >
+                        <Target className="h-3.5 w-3.5" />
+                      </motion.button>
+                      <motion.button
+                        type="button"
+                        aria-label="Open campaign map"
+                        onClick={() => setActiveCampaignModal("map")}
+                        animate={{
+                          boxShadow: [
+                            "0 0 0 0 rgba(124,58,237,0), 0 0 14px rgba(124,58,237,0.16)",
+                            "0 0 0 5px rgba(124,58,237,0.12), 0 0 20px rgba(124,58,237,0.28)",
+                            "0 0 0 0 rgba(124,58,237,0), 0 0 14px rgba(124,58,237,0.16)",
+                          ],
+                        }}
+                        transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut", delay: 0.24 }}
+                        className={`pointer-events-auto focus-ring grid h-8 w-8 place-items-center rounded-lg border text-violet-700 hover:bg-violet-500/12 dark:text-violet-200 ${
+                          activeCampaignModal === "map"
+                            ? "border-violet-400/60 bg-violet-500/20"
+                            : "border-violet-400/30 bg-white/78 dark:bg-white/5"
+                        }`}
+                      >
+                        <Route className="h-3.5 w-3.5" />
+                      </motion.button>
+                      <motion.button
+                        type="button"
+                        aria-label="Open unlock rules"
+                        onClick={() => setActiveCampaignModal("rules")}
+                        animate={{
+                          boxShadow: [
+                            "0 0 0 0 rgba(124,58,237,0), 0 0 14px rgba(124,58,237,0.16)",
+                            "0 0 0 5px rgba(124,58,237,0.12), 0 0 20px rgba(124,58,237,0.28)",
+                            "0 0 0 0 rgba(124,58,237,0), 0 0 14px rgba(124,58,237,0.16)",
+                          ],
+                        }}
+                        transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut", delay: 0.48 }}
+                        className={`pointer-events-auto focus-ring grid h-8 w-8 place-items-center rounded-lg border text-violet-700 hover:bg-violet-500/12 dark:text-violet-200 ${
+                          activeCampaignModal === "rules"
+                            ? "border-violet-400/60 bg-violet-500/20"
+                            : "border-violet-400/30 bg-white/78 dark:bg-white/5"
+                        }`}
+                      >
+                        <Lock className="h-3.5 w-3.5" />
+                      </motion.button>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
               </div>
 
               <section className="glass relative overflow-hidden rounded-[28px] border border-violet-400/20 bg-white/78 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.14)] dark:bg-slate-950/52">
@@ -1262,6 +1307,7 @@ export default function QuizPage() {
                 </div>
               </section>
             </div>
+            )
           ) : currentQuestion ? (
             <div className="min-h-0 flex-1">
               <section className="glass relative flex h-full min-h-0 flex-col rounded-[28px] border border-violet-400/20 bg-white/78 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.14)] dark:bg-slate-950/52">
@@ -1578,5 +1624,21 @@ export default function QuizPage() {
         </AnimatePresence>
       </motion.main>
     </div>
+  );
+}
+
+function QuizPageFallback() {
+  return (
+    <div className="min-h-screen bg-[var(--bg-primary)] px-4 py-6 text-[var(--text-primary)] md:px-8">
+      <p className="text-sm text-[var(--text-secondary)]">Loading quiz...</p>
+    </div>
+  );
+}
+
+export default function QuizPage() {
+  return (
+    <Suspense fallback={<QuizPageFallback />}>
+      <QuizPageContent />
+    </Suspense>
   );
 }

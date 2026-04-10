@@ -43,6 +43,7 @@ export interface QuizHistoryItem {
 }
 
 export interface CurrentUser extends LeaderboardUser {
+  email?: string;
   handle: string;
   joinDate: string;
   streak: number;

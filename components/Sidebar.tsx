@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  AlertTriangle,
   LayoutDashboard,
+  LogOut,
   Swords,
   Trophy,
   BrainCircuit,
@@ -22,10 +24,12 @@ import { useProfilePhotoStore } from "@/lib/profilePhotoStore";
 import { useSettingsStore } from "@/lib/settingsStore";
 import { loadProfileFromSupabase } from "@/lib/supabase/profilePersistence";
 import { useBattleStatsStore } from "@/lib/battleStatsStore";
+import { useAuthStore } from "@/lib/authStore";
+import { useNotificationStore } from "@/lib/notificationStore";
 import SidebarProfileMenu from "@/components/SidebarProfileMenu";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/quiz", label: "Trivia Journey", icon: BrainCircuit },
   { href: "/battle", label: "1v1 Battle", icon: Swords },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
@@ -39,6 +43,11 @@ export default function Sidebar() {
   const { setPhoto } = useProfilePhotoStore();
   const { setAllSettings } = useSettingsStore();
   const importLegacySessions = useBattleStatsStore((state) => state.importLegacySessions);
+  const authUser = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
+  const pushNotification = useNotificationStore((state) => state.pushNotification);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const hydratedRef = useRef(false);
   const {
     isCollapsed,
@@ -94,6 +103,27 @@ export default function Sidebar() {
       `${isCollapsed ? 64 : 240}px`
     );
   }, [isCollapsed]);
+
+  const requestSignOut = () => {
+    setShowSignOutConfirm(true);
+  };
+
+  const confirmSignOut = async () => {
+    if (isSigningOut) return;
+
+    setIsSigningOut(true);
+    try {
+      await logout();
+      pushNotification("Signed out successfully.", "info");
+      setShowSignOutConfirm(false);
+      router.replace("/login");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to sign out right now.";
+      pushNotification(message, "error", 3200);
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
 
   return (
     <>
@@ -170,7 +200,7 @@ export default function Sidebar() {
           <SidebarProfileMenu
             isCollapsed={isCollapsed}
             onSignOut={() => {
-              router.push("/login");
+              requestSignOut();
             }}
           />
         </div>
@@ -253,11 +283,62 @@ export default function Sidebar() {
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-left"
                 >
                   <p className="font-sora text-sm font-semibold text-[var(--text-primary)]">{displayName}</p>
-                  <p className="text-xs text-[var(--text-secondary)]">{tier}</p>
+                  <p className="text-xs text-[var(--text-secondary)]">{authUser?.email || tier}</p>
                 </button>
               </div>
             </motion.aside>
           </>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showSignOutConfirm ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[130] flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm"
+            onClick={() => {
+              if (isSigningOut) return;
+              setShowSignOutConfirm(false);
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.97, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.97, opacity: 0, y: 10 }}
+              className="glass w-full max-w-md rounded-[24px] border border-rose-400/35 bg-white/90 p-5 dark:bg-slate-900/90"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <p className="inline-flex items-center gap-2 font-sora text-lg font-semibold text-[var(--text-primary)]">
+                <AlertTriangle className="h-5 w-5 text-rose-500 dark:text-rose-300" /> Confirm Sign Out
+              </p>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                You are about to sign out of {authUser?.email ?? "your account"}. Continue?
+              </p>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSignOutConfirm(false)}
+                  disabled={isSigningOut}
+                  className="focus-ring arcade-btn rounded-button border border-black/10 px-4 py-2 text-sm text-[var(--text-secondary)] disabled:opacity-60 dark:border-white/15 dark:text-white/80"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void confirmSignOut();
+                  }}
+                  disabled={isSigningOut}
+                  className="focus-ring arcade-btn inline-flex items-center gap-2 rounded-button border border-rose-500/45 bg-rose-100 px-4 py-2 text-sm font-semibold text-rose-700 disabled:opacity-70 dark:border-rose-400/45 dark:bg-rose-500/12 dark:text-rose-100"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {isSigningOut ? "Signing out..." : "Sign Out"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         ) : null}
       </AnimatePresence>
     </>

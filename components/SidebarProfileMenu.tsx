@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUserCircle, faCog, faTrophy, faSignOutAlt } from "@fortawesome/free-solid-svg-icons";
 import ProfilePhoto from "@/components/ProfilePhoto";
+import { useAuthStore } from "@/lib/authStore";
 import { useProfilePhotoStore } from "@/lib/profilePhotoStore";
 import { useProfileStore } from "@/lib/profileStore";
 import { useSettingsStore } from "@/lib/settingsStore";
@@ -27,7 +28,9 @@ export default function SidebarProfileMenu({ isCollapsed, onSignOut }: SidebarPr
   const containerRef = useRef<HTMLDivElement>(null);
   const { photo } = useProfilePhotoStore();
   const { displayName, tier } = useProfileStore();
+  const authUser = useAuthStore((state) => state.user);
   const { showOnlineStatus } = useSettingsStore();
+  const subtitle = authUser?.email?.trim() || tier;
 
   useEffect(() => {
     const onClickOutside = (event: MouseEvent) => {
@@ -85,7 +88,7 @@ export default function SidebarProfileMenu({ isCollapsed, onSignOut }: SidebarPr
               className="min-w-0 flex-1 text-left"
             >
               <p className="truncate whitespace-nowrap font-sora text-sm font-semibold text-[var(--text-primary)]">{displayName}</p>
-              <p className="truncate whitespace-nowrap text-xs text-[var(--text-secondary)]">{tier}</p>
+              <p className="truncate whitespace-nowrap text-xs text-[var(--text-secondary)]">{subtitle}</p>
             </motion.div>
           ) : null}
         </AnimatePresence>
@@ -105,7 +108,7 @@ export default function SidebarProfileMenu({ isCollapsed, onSignOut }: SidebarPr
           >
             <div className="border-b dark:border-white/10 border-gray-200 px-4 py-3">
               <p className="font-sora text-sm font-semibold text-[var(--text-primary)]">{displayName}</p>
-              <p className="text-xs text-[var(--text-secondary)]">{tier}</p>
+              <p className="text-xs text-[var(--text-secondary)]">{subtitle}</p>
             </div>
 
             <div className="py-1">

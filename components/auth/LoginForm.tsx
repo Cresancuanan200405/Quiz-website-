@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Mail, Lock, Eye, EyeOff, User, Check } from "lucide-react";
-import { useAuthStore } from "@/lib/authStore";
+import { useAuthStore } from "../../lib/authStore";
 import SocialButton from "./SocialButton";
 
 export default function LoginForm() {
@@ -47,23 +47,38 @@ export default function LoginForm() {
   };
 
   const handleSubmit = async () => {
+    if (loading) return;
     if (!validate()) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 900));
-    if (mode === "login") {
-      await login(email, password);
-    } else {
-      await register(username, email, password);
+    setErrors({});
+
+    try {
+      await new Promise((r) => setTimeout(r, 900));
+      if (mode === "login") {
+        await login(email, password);
+      } else {
+        await register(username, email, password);
+      }
+      setSuccess(true);
+      setTimeout(() => router.push("/dashboard"), 1200);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Authentication failed. Please try again.";
+      setErrors((prev) => ({ ...prev, form: message }));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    setSuccess(true);
-    setTimeout(() => router.push("/"), 1200);
   };
 
-  const handleSocial = (provider: "google" | "discord" | "github") => {
-    loginWithSocial(provider);
-    setSuccess(true);
-    setTimeout(() => router.push("/"), 900);
+  const handleSocial = async (provider: "google" | "discord" | "github") => {
+    setErrors({});
+    try {
+      await loginWithSocial(provider);
+      setSuccess(true);
+      setTimeout(() => router.push("/dashboard"), 900);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Social login is not available right now.";
+      setErrors((prev) => ({ ...prev, form: message }));
+    }
   };
 
   const inputBase = `w-full h-12 pl-11 pr-4 rounded-xl text-sm transition-all duration-200 outline-none border
@@ -98,10 +113,16 @@ export default function LoginForm() {
         </p>
       </div>
 
+      {errors.form ? (
+        <div className="rounded-xl border border-red-400/35 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-200">
+          {errors.form}
+        </div>
+      ) : null}
+
       <div className="flex flex-col gap-2.5">
-        <SocialButton provider="google" onClick={() => handleSocial("google")} />
-        <SocialButton provider="discord" onClick={() => handleSocial("discord")} />
-        <SocialButton provider="github" onClick={() => handleSocial("github")} />
+        <SocialButton provider="google" onClick={() => void handleSocial("google")} />
+        <SocialButton provider="discord" onClick={() => void handleSocial("discord")} />
+        <SocialButton provider="github" onClick={() => void handleSocial("github")} />
       </div>
 
       <div className="flex items-center gap-3">

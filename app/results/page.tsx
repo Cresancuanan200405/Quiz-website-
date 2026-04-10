@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowUpRight, Clock3, Gauge, Medal, Rocket, ShieldCheck, Sparkles, Target, Trophy } from "lucide-react";
 import ProgressRing from "@/components/ProgressRing";
 import { usePlayerStatsStore } from "@/lib/playerStatsStore";
 
-export default function ResultsPage() {
+function ResultsPageContent() {
   const params = useSearchParams();
   const score = Math.max(0, Number(params.get("score") ?? 0));
   const total = Math.max(1, Number(params.get("total") ?? 10));
@@ -168,5 +168,21 @@ export default function ResultsPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+function ResultsPageFallback() {
+  return (
+    <main className="relative mx-auto flex min-h-screen max-w-5xl items-center justify-center px-4 py-8 text-[var(--text-primary)] sm:py-10">
+      <p className="text-sm text-[var(--text-secondary)]">Loading results...</p>
+    </main>
+  );
+}
+
+export default function ResultsPage() {
+  return (
+    <Suspense fallback={<ResultsPageFallback />}>
+      <ResultsPageContent />
+    </Suspense>
   );
 }

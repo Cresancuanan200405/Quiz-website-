@@ -2,7 +2,6 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { currentUser } from "@/lib/mockData";
 
 export const MAX_PROFILE_TAGS = 12;
 
@@ -20,11 +19,11 @@ interface ProfileState extends ProfileSnapshot {
 }
 
 const defaultProfile: ProfileSnapshot = {
-  displayName: currentUser.username,
-  handle: currentUser.handle,
+  displayName: "Player",
+  handle: "@player",
   bio: "Curious challenger exploring trivia and strategy one round at a time.",
-  tier: currentUser.tier,
-  tags: currentUser.badges.slice(0, MAX_PROFILE_TAGS),
+  tier: "Rising",
+  tags: [],
 };
 
 const sanitizeTags = (tags: string[]) => {

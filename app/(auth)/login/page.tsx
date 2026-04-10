@@ -66,7 +66,7 @@ export default function LoginPage() {
               className="absolute top-0 right-8 dark:bg-white/8 bg-white/80 backdrop-blur-md rounded-2xl border dark:border-white/10 border-black/8 p-4 shadow-xl w-52"
             >
               <p className="text-xs font-semibold dark:text-white/50 text-gray-400 mb-2" style={{ fontFamily: "DM Sans,sans-serif" }}>Mini Leaderboard</p>
-              {[ ["NovaByte", "16,840"], ["EchoDrift", "16,220"], ["ArcShift", "14,580"] ].map(([n, s], i) => (
+              {[ ["NovaByte", "16,840"], ["EchoDrift", "16,220"], ["QuantumVibe", "14,580"] ].map(([n, s], i) => (
                 <div key={n} className="flex justify-between text-xs dark:text-white/80 text-gray-700 py-0.5" style={{ fontFamily: "DM Sans,sans-serif" }}>
                   <span>{i + 1}. {n}</span><span className="dark:text-violet-300 text-violet-600">{s}</span>
                 </div>

@@ -8,7 +8,7 @@ import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import ProfilePhoto from "@/components/ProfilePhoto";
 import ProfilePhotoModal from "@/components/ProfilePhotoModal";
-import { currentUser, triviaFacts } from "@/lib/mockData";
+import { triviaFacts } from "@/lib/mockData";
 import { buildAchievementProgress, getUnlockedAchievements, type AchievementRarity } from "@/lib/achievements";
 import { useNotificationStore } from "@/lib/notificationStore";
 import { useProfilePhotoStore } from "@/lib/profilePhotoStore";
@@ -18,6 +18,7 @@ import { persistProfileToSupabase } from "@/lib/supabase/profilePersistence";
 import { usePlayerStatsStore } from "@/lib/playerStatsStore";
 import { useTriviaFactsStore } from "@/lib/triviaFactsStore";
 import { useBattleStatsStore } from "@/lib/battleStatsStore";
+import { useAuthStore } from "@/lib/authStore";
 import type { ProfileTab } from "@/lib/types";
 import { cx } from "@/lib/utils";
 
@@ -77,6 +78,7 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const { displayName, handle, bio, tags, tier, setProfile } = useProfileStore();
+  const authUser = useAuthStore((state) => state.user);
   const { pushNotification } = useNotificationStore();
   const { photo } = useProfilePhotoStore();
   const { showOnlineStatus } = useSettingsStore();
@@ -146,6 +148,9 @@ export default function ProfilePage() {
 
   const pointsGoal = Math.max(1000, Math.ceil((totalPoints + 500) / 1000) * 1000);
   const pointsProgress = totalPoints > 0 ? Math.max(8, Math.min(100, Math.round((totalPoints / pointsGoal) * 100))) : 8;
+  const battlePointsGoal = Math.max(1000, Math.ceil((totalBattlePoints + 500) / 1000) * 1000);
+  const battlePointsProgress = totalBattlePoints > 0 ? Math.max(8, Math.min(100, Math.round((totalBattlePoints / battlePointsGoal) * 100))) : 8;
+  const battleTier = totalBattlePoints >= 9800 ? "Legendary" : totalBattlePoints >= 8200 ? "Expert" : totalBattlePoints >= 6400 ? "Pro" : "Rising";
 
   const achievementIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
     "first-journey": BrainCircuit,
@@ -422,7 +427,7 @@ export default function ProfilePage() {
                   ) : (
                     <>
                       <h1 className="font-sora text-5xl font-bold leading-none tracking-tight text-slate-900 dark:text-white/95">{displayName}</h1>
-                      <p className="mt-2 text-3xl text-slate-600 dark:text-white/65">{handle} • {currentUser.joinDate}</p>
+                      <p className="mt-2 text-3xl text-slate-600 dark:text-white/65">{handle} • {authUser?.email || "No email linked"}</p>
                       <p className="mt-3 rounded-2xl border border-violet-300/35 bg-white/60 px-4 py-3 text-left text-sm leading-relaxed text-slate-700 dark:border-white/15 dark:bg-black/20 dark:text-white/75">
                         {bio || "No bio yet. Edit your profile to add one."}
                       </p>
@@ -506,6 +511,47 @@ export default function ProfilePage() {
                   <div className="mt-4 border-t border-violet-200/60 pt-3 text-center dark:border-white/15">
                     <p className="text-xs uppercase tracking-[0.15em] text-slate-500 dark:text-white/70">Achievements</p>
                     <p className="mt-1 font-sora text-2xl font-semibold text-slate-900 dark:text-white">{unlockedAchievementCount}/{achievementProgress.length}</p>
+                  </div>
+                </article>
+
+                <article className="rounded-card border border-cyan-300/45 bg-gradient-to-br from-cyan-100 via-sky-100 to-violet-100 p-4 shadow-[0_0_22px_rgba(56,189,248,0.14)] dark:from-cyan-500/16 dark:via-sky-500/18 dark:to-violet-500/16 dark:shadow-[0_0_22px_rgba(56,189,248,0.28)]">
+                  <p className="text-center text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-white/70">1v1 Battle Points</p>
+                  <p className="mt-1 text-center font-sora text-5xl font-bold text-slate-900 dark:text-white">
+                    <span className="inline-flex items-center gap-2">
+                      <Swords className="h-6 w-6" />
+                      {totalBattlePoints}
+                    </span>
+                  </p>
+
+                  <div className="mt-4">
+                    <div className="h-4 rounded-full border border-cyan-200/70 bg-white/80 p-1 dark:border-white/20 dark:bg-black/35">
+                      <div
+                        className="relative h-full rounded-full bg-[linear-gradient(90deg,#06b6d4_0%,#3b82f6_45%,#8b5cf6_100%)] shadow-[0_0_16px_rgba(14,165,233,0.38)]"
+                        style={{ width: `${battlePointsProgress}%` }}
+                      >
+                        <span className="absolute -right-1 top-1/2 h-4 w-1.5 -translate-y-1/2 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)]" />
+                      </div>
+                    </div>
+                    <div className="mt-1 flex justify-between text-sm text-slate-600 dark:text-white/75">
+                      <span>{battleTier}</span>
+                      <span>Battle Master</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-xl border border-cyan-300/35 bg-white/65 px-3 py-2 dark:border-white/15 dark:bg-black/20">
+                      <p className="uppercase tracking-[0.14em] text-slate-500 dark:text-white/65">Win Rate</p>
+                      <p className="mt-1 font-sora text-lg font-semibold text-slate-900 dark:text-white">{battleSummary.winRate}%</p>
+                    </div>
+                    <div className="rounded-xl border border-cyan-300/35 bg-white/65 px-3 py-2 dark:border-white/15 dark:bg-black/20">
+                      <p className="uppercase tracking-[0.14em] text-slate-500 dark:text-white/65">Record</p>
+                      <p className="mt-1 font-sora text-lg font-semibold text-slate-900 dark:text-white">{battleSummary.wins}W-{battleSummary.losses}L</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 border-t border-cyan-200/60 pt-3 text-center dark:border-white/15">
+                    <p className="text-xs uppercase tracking-[0.15em] text-slate-500 dark:text-white/70">Score For / Against</p>
+                    <p className="mt-1 font-sora text-xl font-semibold text-slate-900 dark:text-white">{battleSummary.totalUserScore} / {battleSummary.totalOpponentScore}</p>
                   </div>
                 </article>
 

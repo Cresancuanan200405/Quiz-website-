@@ -8,7 +8,7 @@ import { ArrowLeftRight, BrainCircuit, Clock3, Swords, Trophy } from "lucide-rea
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import { fetchPublicPlayerCardByProfileKey, type PublicPlayerCardData } from "@/lib/supabase/playerCards";
-import { getLocalProfileKey } from "@/lib/supabase/profileKey";
+import { getActiveProfileKey } from "@/lib/supabase/profileKey";
 
 export default function PlayerProfilePage() {
   const params = useParams<{ id: string }>();
@@ -16,10 +16,21 @@ export default function PlayerProfilePage() {
   const [me, setMe] = useState<PublicPlayerCardData | null>(null);
   const [showCompare, setShowCompare] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [myProfileKey, setMyProfileKey] = useState("local-player");
 
   const profileKey = useMemo(() => decodeURIComponent(params.id ?? ""), [params.id]);
-  const myProfileKey = useMemo(() => getLocalProfileKey(), []);
   const isSelfProfile = profileKey === myProfileKey;
+
+  useEffect(() => {
+    const kickoff = window.setTimeout(() => {
+      void (async () => {
+        const resolved = await getActiveProfileKey();
+        setMyProfileKey(resolved);
+      })();
+    }, 0);
+
+    return () => window.clearTimeout(kickoff);
+  }, []);
 
   useEffect(() => {
     const kickoff = window.setTimeout(() => {

@@ -1,5 +1,7 @@
 "use client";
 
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+
 const PROFILE_KEY_STORAGE = "quiz-profile-key-v1";
 
 const generateProfileKey = () => {
@@ -22,4 +24,34 @@ export const getLocalProfileKey = () => {
   } catch {
     return "local-player";
   }
+};
+
+export const getActiveProfileKey = async () => {
+  const supabase = getSupabaseBrowserClient();
+  if (supabase) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user?.id) {
+      return user.id;
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const rawAuth = window.localStorage.getItem("quizarena-auth");
+      if (rawAuth) {
+        const parsed = JSON.parse(rawAuth) as { state?: { user?: { id?: string } } };
+        const persistedUserId = parsed?.state?.user?.id?.trim();
+        if (persistedUserId) {
+          return persistedUserId;
+        }
+      }
+    } catch {
+      // Ignore malformed persisted auth state.
+    }
+  }
+
+  return getLocalProfileKey();
 };

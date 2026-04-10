@@ -1,7 +1,7 @@
 "use client";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { getLocalProfileKey } from "@/lib/supabase/profileKey";
+import { getActiveProfileKey } from "@/lib/supabase/profileKey";
 
 const LOCAL_QUIZ_SESSIONS_KEY = "local-quiz-sessions";
 let isQuizSessionsTableMissing = false;
@@ -40,7 +40,7 @@ export const persistQuizSessionToSupabase = async (payload: QuizSessionPayload) 
     return;
   }
 
-  const profileKey = getLocalProfileKey();
+  const profileKey = await getActiveProfileKey();
   const { error } = await supabase.from("app_quiz_sessions").insert({
     profile_key: profileKey,
     category: payload.category,

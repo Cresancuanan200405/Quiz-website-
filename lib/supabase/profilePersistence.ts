@@ -3,7 +3,7 @@
 import type { ProfilePhotoValue } from "@/lib/profilePhotoStore";
 import type { ProfileSnapshot } from "@/lib/profileStore";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { getLocalProfileKey } from "@/lib/supabase/profileKey";
+import { getActiveProfileKey } from "@/lib/supabase/profileKey";
 
 interface AppUserProfileRow {
   profile_key: string;
@@ -52,7 +52,7 @@ export type ProfilePersistencePayload = PersistedProfilePayload & Partial<Persis
 export const loadProfileFromSupabase = async (): Promise<ProfilePersistencePayload | null> => {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return null;
-  const profileKey = getLocalProfileKey();
+  const profileKey = await getActiveProfileKey();
 
   const { data, error } = await supabase
     .from("app_user_profiles")
@@ -93,7 +93,7 @@ export const loadProfileFromSupabase = async (): Promise<ProfilePersistencePaylo
 export const persistProfileToSupabase = async (payload: ProfilePersistencePayload) => {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return;
-  const profileKey = getLocalProfileKey();
+  const profileKey = await getActiveProfileKey();
 
   const { profile, photo } = payload;
 
@@ -127,7 +127,7 @@ export const persistProfileToSupabase = async (payload: ProfilePersistencePayloa
 export const persistSettingsToSupabase = async (payload: PersistedSettingsPayload) => {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return;
-  const profileKey = getLocalProfileKey();
+  const profileKey = await getActiveProfileKey();
 
   await supabase
     .from("app_user_profiles")

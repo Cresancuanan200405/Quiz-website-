@@ -48,7 +48,7 @@ export default function SocialButton({ provider, onClick, label }: SocialButtonP
       whileHover={{ y: -1 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="focus-ring flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-black/10 bg-black/5 px-4 text-sm text-[var(--text-primary)] shadow-sm hover:border-black/20 hover:bg-black/10 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:border-white/30 dark:hover:bg-white/10"
+      className="focus-ring relative flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-black/10 bg-black/5 px-4 text-sm text-[var(--text-primary)] shadow-sm hover:border-black/20 hover:bg-black/10 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:border-white/30 dark:hover:bg-white/10"
     >
       <span className="absolute left-4 text-[var(--text-secondary)] dark:text-white/80">
         <SocialIcon provider={provider} />

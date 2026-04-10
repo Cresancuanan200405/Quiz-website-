@@ -2,7 +2,6 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { currentUser } from "@/lib/mockData";
 
 export type ProfilePhotoType = "initials" | "icon" | "image";
 
@@ -19,7 +18,7 @@ interface ProfilePhotoState {
 
 const defaultPhoto: ProfilePhotoValue = {
   type: "initials",
-  value: currentUser.avatar,
+  value: "PL",
 };
 
 export const useProfilePhotoStore = create<ProfilePhotoState>()(

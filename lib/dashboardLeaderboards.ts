@@ -1,4 +1,4 @@
-import { currentUser, leaderboardUsers } from "@/lib/mockData";
+import { leaderboardUsers } from "@/lib/mockData";
 import type { RuntimePlayerStats } from "@/lib/leaderboard";
 
 export interface DashboardPreviewEntry {
@@ -13,6 +13,7 @@ export interface DashboardPreviewEntry {
 }
 
 export interface DashboardProfileIdentity {
+  profileKey?: string;
   displayName: string;
   avatar: string;
 }
@@ -46,23 +47,23 @@ export const getTriviaJourneyLeaderboardPreview = (
   profile: DashboardProfileIdentity,
   limit = 5
 ): DashboardPreviewEntry[] => {
-  const baseQuestionCount = currentUser.quizCount * 10;
-  const baseCorrectAnswers = Math.round((currentUser.accuracy / 100) * baseQuestionCount);
-  const totalQuestions = baseQuestionCount + Math.max(0, stats.totalAnsweredQuestions);
-  const totalCorrect = baseCorrectAnswers + Math.max(0, stats.totalCorrectAnswers);
+  const totalQuestions = Math.max(0, stats.totalAnsweredQuestions);
+  const totalCorrect = Math.max(0, stats.totalCorrectAnswers);
+  const meId = profile.profileKey ?? "local-player";
 
   const me: DashboardPreviewEntry = {
-    id: currentUser.id,
+    id: meId,
     username: profile.displayName,
     avatar: profile.avatar,
-    points: currentUser.score + Math.max(0, stats.totalPoints),
+    points: Math.max(0, stats.totalPoints),
     rank: 0,
-    rankLabel: getJourneyTier(currentUser.score + Math.max(0, stats.totalPoints)),
-    accuracy: totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : currentUser.accuracy,
-    activityCount: currentUser.quizCount + Math.max(0, stats.quizzesCompleted),
+    rankLabel: getJourneyTier(Math.max(0, stats.totalPoints)),
+    accuracy: totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0,
+    activityCount: Math.max(0, stats.quizzesCompleted),
   };
 
-  return [...leaderboardUsers.filter((user) => user.id !== currentUser.id), me]
+  const seededTriviaRows: DashboardPreviewEntry[] = leaderboardUsers
+    .filter((user) => user.id !== me.id)
     .map((user) => ({
       id: user.id,
       username: user.username,
@@ -72,8 +73,10 @@ export const getTriviaJourneyLeaderboardPreview = (
       rankLabel: user.tier,
       accuracy: user.accuracy,
       activityCount: user.quizCount,
-    }))
-    .map((entry) => (entry.id === currentUser.id ? me : entry))
+    }));
+
+  return [...seededTriviaRows, me]
+    .map((entry) => (entry.id === me.id ? me : entry))
     .sort((a, b) => b.points - a.points)
     .map((entry, index) => ({ ...entry, rank: index + 1 }))
     .slice(0, limit);
@@ -87,9 +90,10 @@ export const getBattleLeaderboardPreview = (
   const meWinRate = battle.battlesPlayed > 0 ? Math.round((battle.wins / battle.battlesPlayed) * 100) : 0;
   const meBasePoints = 5200;
   const mePoints = meBasePoints + Math.max(0, battle.totalBattlePoints);
+  const meId = profile.profileKey ?? "local-player";
 
   const me: DashboardPreviewEntry = {
-    id: currentUser.id,
+    id: meId,
     username: profile.displayName,
     avatar: profile.avatar,
     points: mePoints,
@@ -116,7 +120,7 @@ export const getBattleLeaderboardPreview = (
     };
   });
 
-  return [...seededBattleRows.filter((user) => user.id !== currentUser.id), me]
+  return [...seededBattleRows.filter((user) => user.id !== me.id), me]
     .sort((a, b) => b.points - a.points)
     .map((entry, index) => ({ ...entry, rank: index + 1 }))
     .slice(0, limit);

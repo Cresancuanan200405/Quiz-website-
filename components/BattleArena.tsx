@@ -6,7 +6,7 @@ import { Swords, LoaderCircle, Image, CircleCheck, Type, Flame, BookOpen, Sparkl
 import CategoryCard from "@/components/CategoryCard";
 import ProfilePhoto from "@/components/ProfilePhoto";
 import Timer from "@/components/Timer";
-import { categoryMeta, currentUser, leaderboardUsers, questions } from "@/lib/mockData";
+import { categoryMeta, leaderboardUsers, questions } from "@/lib/mockData";
 import type { BattleState } from "@/lib/types";
 import AnswerButton from "@/components/AnswerButton";
 import { useProfilePhotoStore } from "@/lib/profilePhotoStore";
@@ -561,7 +561,7 @@ export default function BattleArena() {
   }, [battleQuestions.length, opponentCorrectCount, opponentScore, roundResults, youCorrectCount, youScore]);
 
   const pickFallbackOpponent = useCallback((): BattleOpponent => {
-    const candidateOpponents = leaderboardUsers.filter((user) => user.id !== currentUser.id);
+    const candidateOpponents = leaderboardUsers.filter((user) => user.username.toLowerCase() !== displayName.toLowerCase());
     const randomOpponent = candidateOpponents[Math.floor(Math.random() * candidateOpponents.length)];
 
     if (!randomOpponent) {
@@ -577,7 +577,7 @@ export default function BattleArena() {
       rank: randomOpponent.tier,
       photo: { type: "initials", value: randomOpponent.avatar },
     };
-  }, []);
+  }, [displayName]);
 
   const pickOpponent = useCallback(async (): Promise<BattleOpponent> => {
     const supabaseOpponents = await loadBattleOpponentsFromSupabase();
@@ -605,7 +605,7 @@ export default function BattleArena() {
               tier: player.tier,
               photo: player.photo,
             }))
-        : leaderboardUsers.filter((user) => user.id !== currentUser.id).map((user) => ({
+        : leaderboardUsers.filter((user) => user.username.toLowerCase() !== displayName.toLowerCase()).map((user) => ({
             id: user.id,
             username: user.username,
             tier: user.tier,
@@ -627,7 +627,7 @@ export default function BattleArena() {
     } finally {
       setIsQueueLoading(false);
     }
-  }, []);
+  }, [displayName]);
 
   const persistForfeitResult = useCallback(() => {
     if (forfeitRecordedRef.current || !selectedMode) return;

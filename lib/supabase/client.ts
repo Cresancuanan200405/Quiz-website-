@@ -21,7 +21,11 @@ export const getSupabaseBrowserClient = () => {
 
   if (!browserClient) {
     browserClient = createClient(env.url, env.anonKey, {
-      auth: { persistSession: false },
+      global: {
+        headers: {
+          apikey: env.anonKey,
+        },
+      },
     });
   }
 
