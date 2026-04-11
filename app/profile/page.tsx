@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -73,7 +73,7 @@ const ratingToRank = (rating: number) => {
   return "Bronze";
 };
 
-export default function ProfilePage() {
+function ProfilePageContent() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<ProfileTab>("stats");
   const [isEditing, setIsEditing] = useState(false);
@@ -939,5 +939,27 @@ export default function ProfilePage() {
         ) : null}
       </AnimatePresence>
     </div>
+  );
+}
+
+function ProfilePageFallback() {
+  return (
+    <div className="min-h-screen pb-20 text-[var(--text-primary)] md:pb-0">
+      <Sidebar />
+      <TopBar title="Profile" />
+      <main className="w-full px-4 py-6 md:ml-[var(--sidebar-width)] md:w-[calc(100%-var(--sidebar-width))] md:px-8">
+        <div className="mx-auto w-full max-w-6xl rounded-card border border-black/10 bg-white/70 p-4 text-sm text-[var(--text-secondary)] dark:border-white/10 dark:bg-white/5">
+          Loading profile...
+        </div>
+      </main>
+    </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={<ProfilePageFallback />}>
+      <ProfilePageContent />
+    </Suspense>
   );
 }

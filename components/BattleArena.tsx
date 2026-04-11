@@ -2753,7 +2753,7 @@ export default function BattleArena() {
               <div className="mt-3 flex justify-center gap-2">
                 <button
                   type="button"
-                  onClick={advanceRound}
+                  onClick={() => advanceRound()}
                   className="focus-ring arcade-btn btn-primary inline-flex items-center gap-2 rounded-button px-4 py-2 text-sm font-semibold"
                 >
                   Continue <ArrowRight className="h-4 w-4" />

@@ -51,6 +51,8 @@ export default function BattleLeaderboardPage() {
         id: myProfileKey,
         username: displayName,
         avatar: displayAvatar,
+        avatarType: photo.type,
+        avatarValue: photo.value,
         points: totalBattlePoints,
         rank: 1,
         rankLabel: totalBattlePoints >= 9800 ? "Legendary" : totalBattlePoints >= 8200 ? "Expert" : totalBattlePoints >= 6400 ? "Pro" : "Rising",
@@ -58,7 +60,7 @@ export default function BattleLeaderboardPage() {
         activityCount: battlesPlayed,
       },
     ],
-    [battleWinRate, battlesPlayed, displayAvatar, displayName, myProfileKey, totalBattlePoints]
+    [battleWinRate, battlesPlayed, displayAvatar, displayName, myProfileKey, photo.type, photo.value, totalBattlePoints]
   );
 
   const loadRows = useCallback(async (windowName: LeaderboardWindow) => {
