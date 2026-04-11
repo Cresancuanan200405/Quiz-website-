@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { ArrowUpRight, Clock3, Gauge, Medal, Rocket, ShieldCheck, Sparkles, Target, Trophy } from "lucide-react";
 import ProgressRing from "@/components/ProgressRing";
 import { usePlayerStatsStore } from "@/lib/playerStatsStore";
+import { useSettingsStore } from "@/lib/settingsStore";
+import { fadeOutAndStopTriviaMusic, playTriviaResultsMusic, stopTriviaMusic } from "@/lib/triviaMusic";
 
 function ResultsPageContent() {
   const params = useSearchParams();
@@ -26,9 +28,20 @@ function ResultsPageContent() {
   const bestStreak = usePlayerStatsStore((state) => state.bestStreak);
   const totalCorrectAnswers = usePlayerStatsStore((state) => state.totalCorrectAnswers);
   const totalAnsweredQuestions = usePlayerStatsStore((state) => state.totalAnsweredQuestions);
+  const musicEnabled = useSettingsStore((state) => state.music);
 
   const [animatedAccuracy, setAnimatedAccuracy] = useState(0);
   const [animatedScore, setAnimatedScore] = useState(0);
+
+  useEffect(() => {
+    if (!musicEnabled) {
+      fadeOutAndStopTriviaMusic();
+      return;
+    }
+
+    void playTriviaResultsMusic();
+    return () => stopTriviaMusic();
+  }, [musicEnabled]);
 
   useEffect(() => {
     const duration = 900;

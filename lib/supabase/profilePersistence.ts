@@ -110,7 +110,7 @@ export const persistProfileToSupabase = async (payload: ProfilePersistencePayloa
       public_profile: payload.publicProfile ?? true,
       show_online_status: payload.showOnlineStatus ?? true,
       sound_effects: payload.soundEffects ?? true,
-      music: payload.music ?? false,
+      music: payload.music ?? true,
       auto_start_next_quiz: payload.autoStartNextQuiz ?? true,
       next_question_delay_seconds: payload.nextQuestionDelaySeconds ?? 3,
       daily_reminder: payload.dailyReminder ?? true,

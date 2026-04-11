@@ -17,6 +17,8 @@ import { useSettingsStore } from "@/lib/settingsStore";
 import { usePlayerStatsStore } from "@/lib/playerStatsStore";
 import { getPassedQuestionCounts, getUnlockedDifficultiesForCategory, questionCountOptions } from "@/lib/quizProgression";
 import { persistQuizSessionToSupabase } from "@/lib/supabase/quizPersistence";
+import { playTriviaGameplayMusic, stopTriviaMusic, fadeOutAndStopTriviaMusic } from "@/lib/triviaMusic";
+import { playQuizCorrectSfx, playQuizTapSfx, playQuizWrongSfx } from "@/lib/quizSfx";
 
 const letters = ["A", "B", "C", "D"];
 const difficultyOptions: Difficulty[] = ["Easy", "Medium", "Hard"];
@@ -329,6 +331,8 @@ function QuizPageContent() {
   }, [searchParams]);
   const controlsRef = useRef<HTMLDivElement>(null);
   const bypassBackGuardRef = useRef(false);
+  const soundEffectsEnabled = useSettingsStore((state) => state.soundEffects);
+  const musicEnabled = useSettingsStore((state) => state.music);
   const nextQuestionDelaySeconds = useSettingsStore((state) => state.nextQuestionDelaySeconds);
   const showDifficultyProgressionDialog = useSettingsStore((state) => state.showDifficultyProgressionDialog);
   const setShowDifficultyProgressionDialog = useSettingsStore((state) => state.setShowDifficultyProgressionDialog);
@@ -636,6 +640,9 @@ function QuizPageContent() {
 
   const startQuiz = async () => {
     if (!selectedCategory || !effectiveDifficulty) return;
+    if (musicEnabled) {
+      void playTriviaGameplayMusic();
+    }
     await startQuizSession(selectedCategory, effectiveDifficulty, selectedQuestionCount);
   };
 
@@ -679,6 +686,9 @@ function QuizPageContent() {
       ]);
 
       if (isCorrect) {
+        if (soundEffectsEnabled) {
+          playQuizCorrectSfx();
+        }
         const timeFactor = Math.max(0, timeLeft) / 15;
         let earnedPoints = 0;
         let multiplier = 1;
@@ -699,6 +709,9 @@ function QuizPageContent() {
           text: `+${earnedPoints} pts (x${multiplier.toFixed(1)} streak). ${currentQuestion.explanation}`,
         });
       } else {
+        if (soundEffectsEnabled) {
+          playQuizWrongSfx();
+        }
         setStreak(0);
         setFeedback({
           status: "wrong",
@@ -708,16 +721,19 @@ function QuizPageContent() {
         });
       }
     },
-    [currentQuestion, isRevealed, nextQuestionDelaySeconds, timeLeft]
+    [currentQuestion, isRevealed, nextQuestionDelaySeconds, soundEffectsEnabled, timeLeft]
   );
 
   const onSelect = useCallback(
     (option: string) => {
       if (!hasStarted || isRevealed) return;
+      if (soundEffectsEnabled) {
+        playQuizTapSfx();
+      }
       setSelectedAnswer(option);
       setTimeout(() => revealAnswer(option), 600);
     },
-    [hasStarted, isRevealed, revealAnswer]
+    [hasStarted, isRevealed, revealAnswer, soundEffectsEnabled]
   );
 
   useEffect(() => {
@@ -755,6 +771,16 @@ function QuizPageContent() {
 
     return () => window.clearTimeout(advanceTimer);
   }, [goToNextQuestion, hasStarted, isRevealed, nextQuestionCountdown]);
+
+  useEffect(() => {
+    if (!musicEnabled || !hasStarted) {
+      fadeOutAndStopTriviaMusic();
+      return;
+    }
+
+    void playTriviaGameplayMusic();
+    return () => stopTriviaMusic();
+  }, [hasStarted, musicEnabled]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

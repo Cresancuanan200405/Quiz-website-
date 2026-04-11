@@ -34,6 +34,18 @@ import {
 import { useSettingsStore } from "@/lib/settingsStore";
 import { useBattleStatsStore } from "@/lib/battleStatsStore";
 import { cx } from "@/lib/utils";
+import {
+  playBattleGameplayMusic,
+  playBattleLoserMusic,
+  playBattleWinnerMusic,
+  playCountdownStartMusic,
+  playFindingOpponentMusic,
+  playMatchFoundMusic,
+  stopAllBattleAudio,
+  stopBattleGameplayMusic,
+  stopFindingOpponentMusic,
+} from "@/lib/battleAudio";
+import { playQuizCorrectSfx, playQuizWrongSfx } from "@/lib/quizSfx";
 
 const letters = ["A", "B", "C", "D"];
 const RANDOM_CATEGORY_ID = "__random__";
@@ -504,6 +516,8 @@ const buildBattleQuestions = async (categoryName: string, modeId: BattleModeId, 
 export default function BattleArena() {
   const { photo: profilePhoto } = useProfilePhotoStore();
   const { displayName, tier } = useProfileStore();
+  const musicEnabled = useSettingsStore((state) => state.music);
+  const soundEffectsEnabled = useSettingsStore((state) => state.soundEffects);
   const nextQuestionDelaySeconds = useSettingsStore((state) => state.nextQuestionDelaySeconds);
   const recordBattleSession = useBattleStatsStore((state) => state.recordBattleSession);
 
@@ -582,6 +596,9 @@ export default function BattleArena() {
   const selectedCategoryLabelRef = useRef<string | null>(null);
   const rematchLaunchTokenRef = useRef<string | null>(null);
   const finishedReadyClearedMatchRef = useRef<string | null>(null);
+  const playedMatchFoundTokenRef = useRef<string | null>(null);
+  const playedCountdownTokenRef = useRef<string | null>(null);
+  const playedOutcomeTokenRef = useRef<string | null>(null);
 
   const activeMode = useMemo(
     () => battleModes.find((mode) => mode.id === selectedMode) ?? null,
@@ -645,6 +662,81 @@ export default function BattleArena() {
   }, [activeMatchToken, battleQuestions.length, loadedQuestionsMatchToken]);
 
   const bothLobbyReady = selfLobbyReady && opponentLobbyReady;
+
+  useEffect(() => {
+    return () => {
+      stopAllBattleAudio();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!musicEnabled) {
+      stopAllBattleAudio();
+      return;
+    }
+
+    if (state === "searching" || state === "found") {
+      void playFindingOpponentMusic();
+      stopBattleGameplayMusic(true);
+      return;
+    }
+
+    if (state === "playing") {
+      stopFindingOpponentMusic(true);
+      void playBattleGameplayMusic();
+      return;
+    }
+
+    stopFindingOpponentMusic(true);
+    stopBattleGameplayMusic(true);
+  }, [musicEnabled, state]);
+
+  useEffect(() => {
+    if (!musicEnabled || state !== "found" || !activeMatchToken) return;
+    if (playedMatchFoundTokenRef.current === activeMatchToken) return;
+
+    playedMatchFoundTokenRef.current = activeMatchToken;
+    void playMatchFoundMusic();
+  }, [activeMatchToken, musicEnabled, state]);
+
+  useEffect(() => {
+    if (!musicEnabled || state !== "found" || !activeMatchToken) return;
+    if (!bothLobbyReady || countdown <= 0) return;
+    if (playedCountdownTokenRef.current === activeMatchToken) return;
+
+    playedCountdownTokenRef.current = activeMatchToken;
+    void playCountdownStartMusic();
+  }, [activeMatchToken, bothLobbyReady, countdown, musicEnabled, state]);
+
+  useEffect(() => {
+    if (!musicEnabled || state !== "finished") return;
+
+    let verdict: "you" | "opponent" | "draw" | null = null;
+    if (opponentSurrendered) {
+      verdict = "you";
+    } else if (hasSurrendered) {
+      verdict = "opponent";
+    } else if (resolvedFinalWinner !== null) {
+      verdict = resolvedFinalWinner;
+    } else if (!activeMatchToken) {
+      verdict = youScore === opponentScore ? "draw" : youScore > opponentScore ? "you" : "opponent";
+    }
+
+    if (!verdict) return;
+
+    const outcomeKey = `${activeMatchToken ?? "local"}:${verdict}`;
+    if (playedOutcomeTokenRef.current === outcomeKey) return;
+    playedOutcomeTokenRef.current = outcomeKey;
+
+    if (verdict === "you") {
+      void playBattleWinnerMusic();
+      return;
+    }
+
+    if (verdict === "opponent") {
+      void playBattleLoserMusic();
+    }
+  }, [activeMatchToken, hasSurrendered, musicEnabled, opponentScore, opponentSurrendered, resolvedFinalWinner, state, youScore]);
 
   const toggleLobbyReady = useCallback(async () => {
     if (state !== "found" || !activeMatchToken || !hasLoadedMatchQuestions || isUpdatingLobbyReady) return;
@@ -839,6 +931,13 @@ export default function BattleArena() {
 
       const totalSeconds = activeMode?.secondsPerRound ?? 15;
       const userCorrect = userAnswer === question.correctAnswer;
+      if (soundEffectsEnabled) {
+        if (userCorrect) {
+          playQuizCorrectSfx();
+        } else {
+          playQuizWrongSfx();
+        }
+      }
       const nextYouStreak = userCorrect ? youStreak + 1 : 0;
       const userCalc = userCorrect
         ? getBattlePoints(userTimeSpent, nextYouStreak, totalSeconds)
@@ -921,6 +1020,7 @@ export default function BattleArena() {
       resolvingRound,
       activeMode?.id,
       nextQuestionDelaySeconds,
+      soundEffectsEnabled,
       youStreak,
     ]
   );
@@ -1362,6 +1462,9 @@ export default function BattleArena() {
       setBattleQuestions(prepared.questions);
       setResolvedCategoryName(prepared.resolvedCategoryName);
       setState("searching");
+      playedMatchFoundTokenRef.current = null;
+      playedCountdownTokenRef.current = null;
+      playedOutcomeTokenRef.current = null;
       setIndex(0);
       setSelected(null);
       setRevealed(false);
@@ -1415,6 +1518,7 @@ export default function BattleArena() {
   };
 
   const resetToSetup = () => {
+    stopAllBattleAudio();
     leaveActiveQueue();
     setState("idle");
     setSetupTab("mode");
@@ -1458,6 +1562,9 @@ export default function BattleArena() {
     setHasRequestedRematch(false);
     rematchLaunchTokenRef.current = null;
     finishedReadyClearedMatchRef.current = null;
+    playedMatchFoundTokenRef.current = null;
+    playedCountdownTokenRef.current = null;
+    playedOutcomeTokenRef.current = null;
     forfeitRecordedRef.current = false;
     finishSubmittedRef.current = false;
     markQuestionsLoadedForMatch(null);
@@ -1733,6 +1840,8 @@ export default function BattleArena() {
           photo: ownQueue.opponent?.photo ?? matchedOpponent.photo,
         });
         setState("found");
+        playedCountdownTokenRef.current = null;
+        playedOutcomeTokenRef.current = null;
         setActiveMatchToken(restarted.matchToken);
         syncCountdownFromStart(restarted.matchStartsAt);
         setSelfLobbyReady(false);

@@ -50,7 +50,7 @@ export const useSettingsStore = create<SettingsState>()(
       publicProfile: true,
       showOnlineStatus: true,
       soundEffects: true,
-      music: false,
+      music: true,
       autoStartNextQuiz: true,
       nextQuestionDelaySeconds: 3,
       showDifficultyProgressionDialog: true,

@@ -19,6 +19,9 @@ import {
 
 type NotificationTab = "all" | "important" | "battle" | "trivia";
 type ReadTab = "all" | "unread" | "read";
+type NotificationTimeBucket = "today" | "yesterday" | "earlier";
+
+const PAGE_SIZE = 12;
 
 const iconByType: Record<NotificationFeedType, React.ReactNode> = {
   battle: <Trophy className="h-4 w-4 text-cyan-500" />,
@@ -34,6 +37,7 @@ export default function NotificationsPage() {
   const [archive, setArchive] = useState<NotificationFeedItem[]>([]);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const hydrate = () => {
@@ -75,6 +79,49 @@ export default function NotificationsPage() {
     () => filtered.filter((item) => !dismissedIds.has(item.id)),
     [dismissedIds, filtered]
   );
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(visibleFiltered.length / PAGE_SIZE)),
+    [visibleFiltered.length]
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, readFilter]);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
+
+  const pageStart = (page - 1) * PAGE_SIZE;
+  const pagedItems = useMemo(
+    () => visibleFiltered.slice(pageStart, pageStart + PAGE_SIZE),
+    [pageStart, visibleFiltered]
+  );
+
+  const groupedPagedItems = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000;
+
+    const grouped: Record<NotificationTimeBucket, NotificationFeedItem[]> = {
+      today: [],
+      yesterday: [],
+      earlier: [],
+    };
+
+    pagedItems.forEach((item) => {
+      if (item.timestamp >= startOfToday) {
+        grouped.today.push(item);
+      } else if (item.timestamp >= startOfYesterday) {
+        grouped.yesterday.push(item);
+      } else {
+        grouped.earlier.push(item);
+      }
+    });
+
+    return grouped;
+  }, [pagedItems]);
 
   const markOneAsRead = (id: string) => {
     setReadIds((prev) => {
@@ -181,65 +228,109 @@ export default function NotificationsPage() {
 
           <section className="space-y-2">
             {visibleFiltered.length ? (
-              visibleFiltered.map((item) => {
-                const isRead = readIds.has(item.id);
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-card border border-black/8 bg-white/65 px-3 py-2 text-xs text-[var(--text-secondary)] dark:border-white/10 dark:bg-white/5">
+                  <p>
+                    Showing {pageStart + 1}-{Math.min(visibleFiltered.length, pageStart + PAGE_SIZE)} of {visibleFiltered.length}
+                  </p>
+                  <p>Page {page} of {totalPages}</p>
+                </div>
 
-                return (
-                  <article
-                    key={item.id}
-                    className={`rounded-card border p-4 shadow-[0_8px_20px_rgba(15,23,42,0.08)] transition-colors ${
-                      isRead
-                        ? "border-black/8 bg-white/70 hover:bg-white dark:border-white/10 dark:bg-white/5"
-                        : "border-violet-300/35 bg-violet-500/8"
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="mt-1">{iconByType[item.type]}</div>
-                      <div className="flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-semibold text-[var(--text-primary)]">{item.title}</p>
-                          {item.important ? (
-                            <span className="rounded-full border border-violet-300/45 bg-violet-500/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-violet-700 dark:text-violet-100">
-                              Important
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{item.description}</p>
-                        <p className="mt-1 text-[11px] text-[var(--text-muted)]">{formatRelativeNotificationTime(item.timestamp)}</p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {!isRead ? (
-                          <button
-                            type="button"
-                            onClick={() => markOneAsRead(item.id)}
-                            className="focus-ring rounded-full border border-violet-300/40 bg-violet-500/10 px-2 py-1 text-[10px] text-violet-700 dark:text-violet-100"
+                {([
+                  ["today", "Today"],
+                  ["yesterday", "Yesterday"],
+                  ["earlier", "Earlier"],
+                ] as Array<[NotificationTimeBucket, string]>).map(([bucket, label]) => {
+                  const entries = groupedPagedItems[bucket];
+                  if (!entries.length) return null;
+
+                  return (
+                    <div key={bucket} className="space-y-2">
+                      <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                        {label}
+                      </p>
+                      {entries.map((item) => {
+                        const isRead = readIds.has(item.id);
+
+                        return (
+                          <article
+                            key={item.id}
+                            className={`rounded-card border p-4 shadow-[0_8px_20px_rgba(15,23,42,0.08)] transition-colors ${
+                              isRead
+                                ? "border-black/8 bg-white/70 hover:bg-white dark:border-white/10 dark:bg-white/5"
+                                : "border-violet-300/35 bg-violet-500/8"
+                            }`}
                           >
-                            Read
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            markOneAsRead(item.id);
-                            router.push(item.href);
-                          }}
-                          className="focus-ring rounded-full border border-cyan-300/40 bg-cyan-500/12 px-2 py-1 text-[10px] text-cyan-700 dark:text-cyan-100"
-                        >
-                          Open
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => hideNotification(item.id)}
-                          className="focus-ring rounded-full border border-black/10 p-1 text-[var(--text-secondary)] hover:border-rose-400 hover:text-rose-600 dark:border-white/15"
-                          aria-label="Hide notification"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
+                            <div className="flex items-start gap-3">
+                              <div className="mt-1">{iconByType[item.type]}</div>
+                              <div className="flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-sm font-semibold text-[var(--text-primary)]">{item.title}</p>
+                                  {item.important ? (
+                                    <span className="rounded-full border border-violet-300/45 bg-violet-500/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-violet-700 dark:text-violet-100">
+                                      Important
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{item.description}</p>
+                                <p className="mt-1 text-[11px] text-[var(--text-muted)]">{formatRelativeNotificationTime(item.timestamp)}</p>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {!isRead ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => markOneAsRead(item.id)}
+                                    className="focus-ring rounded-full border border-violet-300/40 bg-violet-500/10 px-2 py-1 text-[10px] text-violet-700 dark:text-violet-100"
+                                  >
+                                    Read
+                                  </button>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    markOneAsRead(item.id);
+                                    router.push(item.href);
+                                  }}
+                                  className="focus-ring rounded-full border border-cyan-300/40 bg-cyan-500/12 px-2 py-1 text-[10px] text-cyan-700 dark:text-cyan-100"
+                                >
+                                  Open
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => hideNotification(item.id)}
+                                  className="focus-ring rounded-full border border-black/10 p-1 text-[var(--text-secondary)] hover:border-rose-400 hover:text-rose-600 dark:border-white/15"
+                                  aria-label="Hide notification"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
                     </div>
-                  </article>
-                );
-              })
+                  );
+                })}
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                    disabled={page <= 1}
+                    className="focus-ring rounded-full border border-black/10 px-3 py-1.5 text-xs text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                    disabled={page >= totalPages}
+                    className="focus-ring rounded-full border border-black/10 px-3 py-1.5 text-xs text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15"
+                  >
+                    Next
+                  </button>
+                </div>
+              </>
             ) : (
               <article className="rounded-card border border-black/8 bg-white/70 p-6 text-center dark:border-white/10 dark:bg-white/5">
                 <Bell className="mx-auto h-8 w-8 text-[var(--text-muted)]" />
