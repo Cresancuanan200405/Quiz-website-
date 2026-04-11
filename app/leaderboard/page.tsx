@@ -22,6 +22,8 @@ const toLeaderboardUser = (entry: {
   id: string;
   username: string;
   avatar: string;
+  avatarType?: "initials" | "icon" | "image";
+  avatarValue?: string;
   points: number;
   rank: number;
   rankLabel: string;
@@ -31,6 +33,8 @@ const toLeaderboardUser = (entry: {
   id: entry.id,
   username: entry.username,
   avatar: entry.avatar,
+  avatarType: entry.avatarType,
+  avatarValue: entry.avatarValue,
   score: entry.points,
   accuracy: entry.accuracy,
   quizCount: entry.activityCount,
@@ -78,6 +82,8 @@ export default function LeaderboardPage() {
         id: myProfileKey,
         username: displayName,
         avatar: displayAvatar,
+        avatarType: photo.type,
+        avatarValue: photo.value,
         score: totalPoints,
         accuracy: triviaAccuracy,
         quizCount: quizzesCompleted,
@@ -85,7 +91,7 @@ export default function LeaderboardPage() {
         tier: totalPoints >= 16000 ? "Legendary" : totalPoints >= 14500 ? "Expert" : totalPoints >= 12500 ? "Pro" : "Rising",
       },
     ],
-    [displayAvatar, displayName, myProfileKey, quizzesCompleted, totalPoints, triviaAccuracy]
+    [displayAvatar, displayName, myProfileKey, photo.type, photo.value, quizzesCompleted, totalPoints, triviaAccuracy]
   );
 
   const battleWinRate = battlesPlayed > 0 ? Math.round((wins / battlesPlayed) * 100) : 0;
@@ -95,6 +101,8 @@ export default function LeaderboardPage() {
         id: myProfileKey,
         username: displayName,
         avatar: displayAvatar,
+        avatarType: photo.type,
+        avatarValue: photo.value,
         score: totalBattlePoints,
         accuracy: battleWinRate,
         quizCount: battlesPlayed,
@@ -102,7 +110,7 @@ export default function LeaderboardPage() {
         tier: totalBattlePoints >= 9800 ? "Legendary" : totalBattlePoints >= 8200 ? "Expert" : totalBattlePoints >= 6400 ? "Pro" : "Rising",
       },
     ],
-    [battleWinRate, battlesPlayed, displayAvatar, displayName, myProfileKey, totalBattlePoints]
+    [battleWinRate, battlesPlayed, displayAvatar, displayName, myProfileKey, photo.type, photo.value, totalBattlePoints]
   );
 
   useEffect(() => {

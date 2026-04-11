@@ -230,9 +230,6 @@ export default function PlayerProfilePage() {
                           textClassName="text-4xl"
                           neon
                         />
-                        {player.showOnlineStatus ? (
-                          <span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.65)] dark:border-slate-900" />
-                        ) : null}
                       </div>
                     </div>
 
@@ -408,12 +405,32 @@ export default function PlayerProfilePage() {
                           </h3>
                           <div className="space-y-2">
                             {player.recentBattle.length ? (
-                              player.recentBattle.map((entry, index) => (
-                                <div key={`recent-battle-${index}`} className="rounded-xl border border-black/8 bg-white/65 px-3 py-2 text-sm dark:border-white/10 dark:bg-white/5">
-                                  <p className="font-medium text-[var(--text-primary)]">{entry.mode} • vs {entry.opponent_name}</p>
-                                  <p className="text-xs text-[var(--text-secondary)]">{entry.category} • {entry.result.toUpperCase()} • {entry.user_score}-{entry.opponent_score} • {formatDate(entry.played_at)}</p>
-                                </div>
-                              ))
+                              player.recentBattle.map((entry, index) => {
+                                const isWin = entry.result === "win";
+                                const isLoss = entry.result === "loss";
+                                const badgeClass = isWin
+                                  ? "border-emerald-300/55 bg-emerald-500/15 text-emerald-700 dark:border-emerald-400/45 dark:bg-emerald-400/15 dark:text-emerald-100"
+                                  : isLoss
+                                    ? "border-rose-300/55 bg-rose-500/15 text-rose-700 dark:border-rose-400/45 dark:bg-rose-400/15 dark:text-rose-100"
+                                    : "border-amber-300/55 bg-amber-500/15 text-amber-700 dark:border-amber-400/45 dark:bg-amber-400/15 dark:text-amber-100";
+                                const shellClass = isWin
+                                  ? "border-emerald-300/35 bg-[linear-gradient(140deg,rgba(236,253,245,0.9),rgba(209,250,229,0.6))] dark:border-emerald-400/25 dark:bg-[linear-gradient(140deg,rgba(16,185,129,0.18),rgba(16,185,129,0.08))]"
+                                  : isLoss
+                                    ? "border-rose-300/35 bg-[linear-gradient(140deg,rgba(255,241,242,0.9),rgba(254,205,211,0.55))] dark:border-rose-400/25 dark:bg-[linear-gradient(140deg,rgba(244,63,94,0.2),rgba(251,113,133,0.08))]"
+                                    : "border-amber-300/35 bg-[linear-gradient(140deg,rgba(255,251,235,0.9),rgba(254,240,138,0.45))] dark:border-amber-400/25 dark:bg-[linear-gradient(140deg,rgba(245,158,11,0.2),rgba(251,191,36,0.08))]";
+
+                                return (
+                                  <div key={`recent-battle-${index}`} className={`rounded-2xl border px-3 py-2 text-sm shadow-[0_10px_26px_rgba(15,23,42,0.08)] backdrop-blur-md dark:shadow-[0_10px_26px_rgba(15,23,42,0.32)] ${shellClass}`}>
+                                    <div className="flex items-start justify-between gap-2">
+                                      <p className="font-medium text-[var(--text-primary)]">{entry.mode} • vs {entry.opponent_name}</p>
+                                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] ${badgeClass}`}>
+                                        {entry.result.toUpperCase()}
+                                      </span>
+                                    </div>
+                                    <p className="mt-1 text-xs text-[var(--text-secondary)]">{entry.category} • {entry.user_score}-{entry.opponent_score} • {formatDate(entry.played_at)}</p>
+                                  </div>
+                                );
+                              })
                             ) : (
                               <p className="text-xs text-[var(--text-secondary)]">No 1v1 battle sessions yet.</p>
                             )}

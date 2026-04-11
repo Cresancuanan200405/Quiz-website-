@@ -79,6 +79,7 @@ export interface BattleQueueUpsertPayload {
   displayName: string;
   tier: string;
   photo: ProfilePhotoValue;
+  forceSearchReset?: boolean;
 }
 
 export interface BattleQueueEntry {
@@ -122,6 +123,7 @@ export interface BattleQueueMatchResult {
 
 export interface BattleMatchScoreState {
   selfProfileKey: string;
+  opponentPresent: boolean;
   selfLiveScore: number;
   opponentLiveScore: number;
   selfLiveAccuracy: number;
@@ -253,6 +255,39 @@ export const upsertBattleQueueEntryInSupabase = async (payload: BattleQueueUpser
 
   const profileKey = await getActiveProfileKey();
   const nowIso = new Date().toISOString();
+
+  const existingState = await supabase
+    .from("app_battle_queue")
+    .select("queue_state, match_token")
+    .eq("profile_key", profileKey)
+    .maybeSingle<{ queue_state: "searching" | "matched"; match_token: string | null }>();
+
+  if (!payload.forceSearchReset && !existingState.error && existingState.data?.queue_state === "matched" && existingState.data.match_token) {
+    // Preserve a live match row; only refresh profile metadata and heartbeat.
+    const { error: matchedUpdateError } = await supabase
+      .from("app_battle_queue")
+      .update({
+        mode: payload.mode,
+        category: payload.category,
+        display_name: payload.displayName,
+        tier: payload.tier,
+        avatar_type: payload.photo.type,
+        avatar_value: payload.photo.value,
+        heartbeat_at: nowIso,
+      })
+      .eq("profile_key", profileKey);
+
+    if (!matchedUpdateError) return;
+
+    if (isMissingBattleQueueTableError(matchedUpdateError.message)) {
+      isBattleQueueTableMissing = true;
+      console.warn("Battle queue table is missing in Supabase. Run the migration to enable live queue matchmaking.");
+      return;
+    }
+
+    console.warn("Unable to update matched battle queue entry", matchedUpdateError.message);
+    return;
+  }
 
   const queueRow = {
     profile_key: profileKey,
@@ -505,7 +540,7 @@ export const loadOwnBattleQueueStateFromSupabase = async (): Promise<BattleQueue
 
 const buildMatchToken = (firstProfileKey: string, secondProfileKey: string) => {
   const ordered = [firstProfileKey, secondProfileKey].sort();
-  return `${ordered[0]}:${ordered[1]}:${Date.now()}`;
+  return `${ordered[0]}:${ordered[1]}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
 };
 
 export const createBattleQueueMatchInSupabase = async (args: {
@@ -518,9 +553,70 @@ export const createBattleQueueMatchInSupabase = async (args: {
   if (!supabase || isBattleQueueTableMissing) return null;
 
   const profileKey = await getActiveProfileKey();
+
   const matchToken = buildMatchToken(profileKey, args.opponent.profileKey);
   const startsAtIso = new Date(Date.now() + 5000).toISOString();
   const heartbeatAt = new Date().toISOString();
+
+  const resolveExistingMatchForSelf = async (): Promise<BattleQueueMatchResult | null> => {
+    const ownState = await loadOwnBattleQueueStateFromSupabase();
+    if (ownState?.queueState === "matched" && ownState.matchToken && ownState.matchStartsAt) {
+      return {
+        matchToken: ownState.matchToken,
+        matchStartsAt: ownState.matchStartsAt,
+      };
+    }
+
+    return null;
+  };
+
+  const rollbackOpponentMatchAttempt = async () => {
+    const { error } = await supabase
+      .from("app_battle_queue")
+      .update({
+        queue_state: "searching",
+        searching: true,
+        match_token: null,
+        match_starts_at: null,
+        opponent_profile_key: null,
+        opponent_display_name: null,
+        opponent_tier: null,
+        opponent_avatar_type: null,
+        opponent_avatar_value: null,
+        match_ready_at: null,
+        heartbeat_at: new Date().toISOString(),
+      })
+      .eq("profile_key", args.opponent.profileKey)
+      .eq("match_token", matchToken)
+      .eq("opponent_profile_key", profileKey);
+
+    if (!error) return;
+    if (isMissingBattleReadyColumnError(error.message)) {
+      const fallback = await supabase
+        .from("app_battle_queue")
+        .update({
+          queue_state: "searching",
+          searching: true,
+          match_token: null,
+          match_starts_at: null,
+          opponent_profile_key: null,
+          opponent_display_name: null,
+          opponent_tier: null,
+          opponent_avatar_type: null,
+          opponent_avatar_value: null,
+          heartbeat_at: new Date().toISOString(),
+        })
+        .eq("profile_key", args.opponent.profileKey)
+        .eq("match_token", matchToken)
+        .eq("opponent_profile_key", profileKey);
+
+      if (!fallback.error) return;
+      console.warn("Unable to rollback unilateral opponent match row", fallback.error.message);
+      return;
+    }
+
+    console.warn("Unable to rollback unilateral opponent match row", error.message);
+  };
 
   const { data: opponentRows, error: opponentError } = await supabase
     .from("app_battle_queue")
@@ -590,7 +686,7 @@ export const createBattleQueueMatchInSupabase = async (args: {
 
       if (!fallbackOpponentRows.data || !fallbackOpponentRows.data.length) return null;
 
-      const fallbackSelfError = await supabase
+      const fallbackSelf = await supabase
         .from("app_battle_queue")
         .update({
           queue_state: "matched",
@@ -611,10 +707,20 @@ export const createBattleQueueMatchInSupabase = async (args: {
           finished_at: null,
           heartbeat_at: heartbeatAt,
         })
-        .eq("profile_key", profileKey);
+        .eq("profile_key", profileKey)
+        .eq("queue_state", "searching")
+        .is("match_token", null)
+        .select("profile_key");
 
-      if (fallbackSelfError.error) {
-        console.warn("Unable to update own queue row after creating match", fallbackSelfError.error.message);
+      if (fallbackSelf.error) {
+        console.warn("Unable to update own queue row after creating match", fallbackSelf.error.message);
+        await rollbackOpponentMatchAttempt();
+        return resolveExistingMatchForSelf();
+      }
+
+      if (!fallbackSelf.data || !fallbackSelf.data.length) {
+        await rollbackOpponentMatchAttempt();
+        return resolveExistingMatchForSelf();
       }
 
       return {
@@ -631,9 +737,11 @@ export const createBattleQueueMatchInSupabase = async (args: {
     return null;
   }
 
-  if (!opponentRows || !opponentRows.length) return null;
+  if (!opponentRows || !opponentRows.length) {
+    return resolveExistingMatchForSelf();
+  }
 
-  const { error: selfError } = await supabase
+  const { data: selfRows, error: selfError } = await supabase
     .from("app_battle_queue")
     .update({
       queue_state: "matched",
@@ -655,7 +763,10 @@ export const createBattleQueueMatchInSupabase = async (args: {
       finished_at: null,
       heartbeat_at: heartbeatAt,
     })
-    .eq("profile_key", profileKey);
+    .eq("profile_key", profileKey)
+    .eq("queue_state", "searching")
+    .is("match_token", null)
+    .select("profile_key");
 
   if (selfError) {
     if (isMissingBattleReadyColumnError(selfError.message)) {
@@ -680,10 +791,20 @@ export const createBattleQueueMatchInSupabase = async (args: {
           finished_at: null,
           heartbeat_at: heartbeatAt,
         })
-        .eq("profile_key", profileKey);
+        .eq("profile_key", profileKey)
+        .eq("queue_state", "searching")
+        .is("match_token", null)
+        .select("profile_key");
 
       if (fallbackSelf.error) {
         console.warn("Unable to update own queue row after creating match", fallbackSelf.error.message);
+        await rollbackOpponentMatchAttempt();
+        return resolveExistingMatchForSelf();
+      }
+
+      if (!fallbackSelf.error && (!fallbackSelf.data || !fallbackSelf.data.length)) {
+        await rollbackOpponentMatchAttempt();
+        return resolveExistingMatchForSelf();
       }
 
       return {
@@ -693,10 +814,194 @@ export const createBattleQueueMatchInSupabase = async (args: {
     }
 
     console.warn("Unable to update own queue row after creating match", selfError.message);
+    await rollbackOpponentMatchAttempt();
+    return resolveExistingMatchForSelf();
+  }
+
+  if (!selfRows || !selfRows.length) {
+    await rollbackOpponentMatchAttempt();
+    return resolveExistingMatchForSelf();
   }
 
   return {
     matchToken,
+    matchStartsAt: startsAtIso,
+  };
+};
+
+export const restartBattleQueueMatchInSupabase = async (matchToken: string): Promise<BattleQueueMatchResult | null> => {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase || isBattleQueueTableMissing || !matchToken) return null;
+
+  const profileKey = await getActiveProfileKey();
+  const { data: ownRow, error } = await supabase
+    .from("app_battle_queue")
+    .select(
+      "profile_key, mode, category, display_name, tier, avatar_type, avatar_value, opponent_profile_key, opponent_display_name, opponent_tier, opponent_avatar_type, opponent_avatar_value, queue_state, match_token"
+    )
+    .eq("profile_key", profileKey)
+    .eq("match_token", matchToken)
+    .maybeSingle<
+      Pick<
+        AppBattleQueueRow,
+        | "profile_key"
+        | "mode"
+        | "category"
+        | "display_name"
+        | "tier"
+        | "avatar_type"
+        | "avatar_value"
+        | "opponent_profile_key"
+        | "opponent_display_name"
+        | "opponent_tier"
+        | "opponent_avatar_type"
+        | "opponent_avatar_value"
+        | "queue_state"
+        | "match_token"
+      >
+    >();
+
+  if (error) {
+    if (isMissingBattleQueueTableError(error.message)) {
+      isBattleQueueTableMissing = true;
+      return null;
+    }
+
+    console.warn("Unable to read battle queue row for rematch", error.message);
+    return null;
+  }
+
+  if (!ownRow?.opponent_profile_key) return null;
+  if (profileKey >= ownRow.opponent_profile_key) return null;
+
+  const newMatchToken = buildMatchToken(profileKey, ownRow.opponent_profile_key);
+  const startsAtIso = new Date(Date.now() + 5000).toISOString();
+  const heartbeatAt = new Date().toISOString();
+
+  const resetPayload = {
+    queue_state: "matched" as const,
+    searching: true,
+    match_token: newMatchToken,
+    match_starts_at: startsAtIso,
+    match_ready_at: null,
+    surrendered: false,
+    surrendered_by_profile_key: null,
+    live_score: 0,
+    live_accuracy: 0,
+    live_streak: 0,
+    final_score: null,
+    finished_at: null,
+    heartbeat_at: heartbeatAt,
+  };
+
+  const { error: opponentError } = await supabase
+    .from("app_battle_queue")
+    .update({
+      ...resetPayload,
+      mode: ownRow.mode,
+      category: ownRow.category,
+      opponent_profile_key: profileKey,
+      opponent_display_name: ownRow.display_name,
+      opponent_tier: ownRow.tier,
+      opponent_avatar_type: ownRow.avatar_type,
+      opponent_avatar_value: ownRow.avatar_value,
+    })
+    .eq("profile_key", ownRow.opponent_profile_key)
+    .eq("match_token", matchToken);
+
+  if (opponentError) {
+    if (isMissingBattleReadyColumnError(opponentError.message)) {
+      const fallbackOpponent = await supabase
+        .from("app_battle_queue")
+        .update({
+          queue_state: "matched",
+          searching: true,
+          match_token: newMatchToken,
+          match_starts_at: startsAtIso,
+          surrendered: false,
+          surrendered_by_profile_key: null,
+          live_score: 0,
+          live_accuracy: 0,
+          live_streak: 0,
+          final_score: null,
+          finished_at: null,
+          heartbeat_at: heartbeatAt,
+          mode: ownRow.mode,
+          category: ownRow.category,
+          opponent_profile_key: profileKey,
+          opponent_display_name: ownRow.display_name,
+          opponent_tier: ownRow.tier,
+          opponent_avatar_type: ownRow.avatar_type,
+          opponent_avatar_value: ownRow.avatar_value,
+        })
+        .eq("profile_key", ownRow.opponent_profile_key)
+        .eq("match_token", matchToken);
+
+      if (fallbackOpponent.error) {
+        console.warn("Unable to restart rematch opponent row", fallbackOpponent.error.message);
+        return null;
+      }
+    } else {
+      console.warn("Unable to restart rematch opponent row", opponentError.message);
+      return null;
+    }
+  }
+
+  const { error: selfError } = await supabase
+    .from("app_battle_queue")
+    .update({
+      ...resetPayload,
+      mode: ownRow.mode,
+      category: ownRow.category,
+      opponent_profile_key: ownRow.opponent_profile_key,
+      opponent_display_name: ownRow.opponent_display_name,
+      opponent_tier: ownRow.opponent_tier,
+      opponent_avatar_type: ownRow.opponent_avatar_type,
+      opponent_avatar_value: ownRow.opponent_avatar_value,
+    })
+    .eq("profile_key", profileKey)
+    .eq("match_token", matchToken);
+
+  if (selfError) {
+    if (isMissingBattleReadyColumnError(selfError.message)) {
+      const fallbackSelf = await supabase
+        .from("app_battle_queue")
+        .update({
+          queue_state: "matched",
+          searching: true,
+          match_token: newMatchToken,
+          match_starts_at: startsAtIso,
+          surrendered: false,
+          surrendered_by_profile_key: null,
+          live_score: 0,
+          live_accuracy: 0,
+          live_streak: 0,
+          final_score: null,
+          finished_at: null,
+          heartbeat_at: heartbeatAt,
+          mode: ownRow.mode,
+          category: ownRow.category,
+          opponent_profile_key: ownRow.opponent_profile_key,
+          opponent_display_name: ownRow.opponent_display_name,
+          opponent_tier: ownRow.opponent_tier,
+          opponent_avatar_type: ownRow.opponent_avatar_type,
+          opponent_avatar_value: ownRow.opponent_avatar_value,
+        })
+        .eq("profile_key", profileKey)
+        .eq("match_token", matchToken);
+
+      if (fallbackSelf.error) {
+        console.warn("Unable to restart rematch self row", fallbackSelf.error.message);
+        return null;
+      }
+    } else {
+      console.warn("Unable to restart rematch self row", selfError.message);
+      return null;
+    }
+  }
+
+  return {
+    matchToken: newMatchToken,
     matchStartsAt: startsAtIso,
   };
 };
@@ -784,6 +1089,32 @@ export const markBattleQueueMatchReadyInSupabase = async (matchToken: string) =>
   console.warn("Unable to mark battle queue match ready", error.message);
 };
 
+export const clearBattleQueueMatchReadyInSupabase = async (matchToken: string) => {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase || isBattleQueueTableMissing || !matchToken) return;
+
+  const profileKey = await getActiveProfileKey();
+  const { error } = await supabase
+    .from("app_battle_queue")
+    .update({
+      match_ready_at: null,
+      heartbeat_at: new Date().toISOString(),
+    })
+    .eq("profile_key", profileKey)
+    .eq("match_token", matchToken);
+
+  if (!error) return;
+
+  if (isMissingBattleReadyColumnError(error.message)) return;
+
+  if (isMissingBattleQueueTableError(error.message)) {
+    isBattleQueueTableMissing = true;
+    return;
+  }
+
+  console.warn("Unable to clear battle queue match ready", error.message);
+};
+
 export const removeBattleQueueMatchByTokenInSupabase = async (matchToken: string) => {
   const supabase = getSupabaseBrowserClient();
   if (!supabase || isBattleQueueTableMissing || !matchToken) return;
@@ -863,6 +1194,7 @@ export const loadBattleMatchScoreStateFromSupabase = async (matchToken: string):
 
       return {
         selfProfileKey: profileKey,
+        opponentPresent: Boolean(opponentRow),
         selfLiveScore: Math.max(0, selfRow?.live_score ?? 0),
         opponentLiveScore: Math.max(0, opponentRow?.live_score ?? 0),
         selfLiveAccuracy: Math.max(0, selfRow?.live_accuracy ?? 0),
@@ -895,6 +1227,7 @@ export const loadBattleMatchScoreStateFromSupabase = async (matchToken: string):
 
   return {
     selfProfileKey: profileKey,
+    opponentPresent: Boolean(opponentRow),
     selfLiveScore: Math.max(0, selfRow?.live_score ?? 0),
     opponentLiveScore: Math.max(0, opponentRow?.live_score ?? 0),
     selfLiveAccuracy: Math.max(0, selfRow?.live_accuracy ?? 0),

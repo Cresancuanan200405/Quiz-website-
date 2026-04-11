@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Star, PenSquare, Camera, Check, X, BrainCircuit, Swords, Award, Crown, Flame, Shield, Target, Trophy } from "lucide-react";
+import { Star, PenSquare, Camera, Check, X, BrainCircuit, Swords, Award, Crown, Flame, Shield, Target, Trophy, ChevronDown, ChevronUp } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import ProfilePhoto from "@/components/ProfilePhoto";
@@ -73,6 +74,7 @@ const ratingToRank = (rating: number) => {
 };
 
 export default function ProfilePage() {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<ProfileTab>("stats");
   const [isEditing, setIsEditing] = useState(false);
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
@@ -81,7 +83,7 @@ export default function ProfilePage() {
   const { photo } = useProfilePhotoStore();
   const { showOnlineStatus } = useSettingsStore();
   const { quizzesCompleted, totalCorrectAnswers, totalAnsweredQuestions, bestStreak, totalPoints, quizHistory } = usePlayerStatsStore();
-  const { battlesPlayed, wins, losses, draws, totalScoreFor, totalScoreAgainst, bestWinStreak, totalBattlePoints } = useBattleStatsStore();
+  const { battlesPlayed, wins, losses, draws, totalScoreFor, totalScoreAgainst, bestWinStreak, totalBattlePoints, battleHistory } = useBattleStatsStore();
   const { savedFactIds, factSnapshots, toggleSave } = useTriviaFactsStore();
   const [editData, setEditData] = useState({
     displayName,
@@ -90,6 +92,26 @@ export default function ProfilePage() {
   });
   const [selectedTags, setSelectedTags] = useState<string[]>(tags);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isTriviaHistoryExpanded, setIsTriviaHistoryExpanded] = useState(true);
+  const [isBattleHistoryExpanded, setIsBattleHistoryExpanded] = useState(true);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "stats" || tab === "history" || tab === "saved") {
+      setActiveTab(tab);
+    }
+
+    const section = searchParams.get("section");
+    if (section === "trivia") {
+      setActiveTab("history");
+      setIsTriviaHistoryExpanded(true);
+      setIsBattleHistoryExpanded(false);
+    } else if (section === "battle") {
+      setActiveTab("history");
+      setIsTriviaHistoryExpanded(false);
+      setIsBattleHistoryExpanded(true);
+    }
+  }, [searchParams]);
 
   const savedFacts = useMemo(() => {
     const staticFacts = triviaFacts.filter((fact) => savedFactIds.includes(fact.id));
@@ -509,6 +531,28 @@ export default function ProfilePage() {
                     No unlocked achievements yet.
                   </div>
                 )}
+
+                <div className="mt-4 rounded-2xl border border-violet-300/35 bg-[linear-gradient(145deg,rgba(255,255,255,0.86),rgba(238,242,255,0.72),rgba(224,242,254,0.64))] p-3 shadow-[0_14px_28px_rgba(99,102,241,0.14),inset_0_1px_0_rgba(255,255,255,0.5)] backdrop-blur-md dark:border-violet-300/20 dark:bg-[linear-gradient(145deg,rgba(30,27,75,0.42),rgba(67,56,202,0.22),rgba(8,47,73,0.22))] dark:shadow-[0_16px_32px_rgba(15,23,42,0.4),inset_0_1px_0_rgba(255,255,255,0.08)]">
+                  <h3 className="mb-2 text-xs uppercase tracking-[0.2em] text-violet-700 dark:text-violet-200">Profile Tags</h3>
+                  <div className="space-y-2">
+                    {groupedProfileTags.map((group) => (
+                      <div key={`profile-inline-tags-${group.title}`}>
+                        <p className="mb-1 text-[10px] uppercase tracking-[0.18em] text-slate-500 dark:text-white/65">{group.title}</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {group.tags.length ? (
+                            group.tags.map((tag) => (
+                              <span key={`${group.title}-${tag}`} className="rounded-full border border-violet-300/35 bg-white/72 px-2.5 py-1 text-[11px] text-violet-700 shadow-[0_6px_14px_rgba(99,102,241,0.16)] ring-1 ring-white/45 dark:border-violet-300/30 dark:bg-violet-500/14 dark:text-violet-100 dark:shadow-[0_8px_16px_rgba(30,41,59,0.4)] dark:ring-white/10">
+                                {tag}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-[var(--text-secondary)]">No {group.title.toLowerCase()} selected.</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <div className="flex flex-col justify-between gap-5">
@@ -606,28 +650,6 @@ export default function ProfilePage() {
                 ))}
               </div>
             </div>
-          </div>
-        </section>
-
-        <section className="glass rounded-card border border-violet-300/30 bg-gradient-to-r from-violet-100 via-violet-50 to-cyan-100 p-4 shadow-[0_0_14px_rgba(129,140,248,0.12)] dark:from-violet-500/12 dark:via-violet-500/6 dark:to-cyan-500/10 dark:shadow-[0_0_14px_rgba(129,140,248,0.18)]">
-          <h2 className="mb-3 font-sora text-lg font-semibold text-[var(--text-primary)]">Profile Tags</h2>
-          <div className="space-y-3">
-            {groupedProfileTags.map((group) => (
-              <article key={`my-profile-${group.title}`} className="rounded-xl border border-black/8 bg-white/65 p-3 dark:border-white/10 dark:bg-white/5">
-                <h3 className="mb-2 text-xs uppercase tracking-[0.2em] text-[var(--text-secondary)]">{group.title}</h3>
-                <div className="flex flex-wrap gap-2">
-                  {group.tags.length ? (
-                    group.tags.map((tag) => (
-                      <span key={`${group.title}-${tag}`} className="rounded-full border border-violet-300/35 bg-violet-500/14 px-2.5 py-1 text-xs text-violet-700 dark:text-violet-100">
-                        {tag}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs text-[var(--text-secondary)]">No {group.title.toLowerCase()} selected.</span>
-                  )}
-                </div>
-              </article>
-            ))}
           </div>
         </section>
 
@@ -749,31 +771,119 @@ export default function ProfilePage() {
 
         {/* History Section */}
         {activeTab === "history" ? (
-          <section className="space-y-2">
-            {quizHistory.length ? (
-              quizHistory.map((item) => (
-                <article key={item.id} className="rounded-card border border-violet-300/30 bg-gradient-to-r from-violet-100 via-violet-50 to-cyan-100 p-4 shadow-[0_0_14px_rgba(129,140,248,0.12)] dark:from-violet-500/12 dark:via-violet-500/6 dark:to-cyan-500/10 dark:shadow-[0_0_14px_rgba(129,140,248,0.18)]">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-slate-900 dark:text-white">{item.category} Quiz • {item.difficulty}</p>
-                      <p className="text-xs text-slate-600 dark:text-white/65">{new Date(item.completedAt).toLocaleString()}</p>
+          <section className="grid gap-4 lg:grid-cols-2">
+            <article className="rounded-card border border-black/8 bg-white/70 p-4 dark:border-white/10 dark:bg-white/5">
+              <button
+                type="button"
+                onClick={() => setIsTriviaHistoryExpanded((value) => !value)}
+                className="focus-ring mb-2 flex w-full items-center justify-between rounded-xl border border-violet-300/35 bg-violet-500/8 px-3 py-2 text-left"
+              >
+                <span className="inline-flex items-center gap-2 font-sora text-base font-semibold text-[var(--text-primary)]">
+                  <BrainCircuit className="h-4 w-4 text-violet-500" /> Trivia Journey Sessions
+                </span>
+                {isTriviaHistoryExpanded ? <ChevronUp className="h-4 w-4 text-violet-500" /> : <ChevronDown className="h-4 w-4 text-violet-500" />}
+              </button>
+              <AnimatePresence initial={false}>
+                {isTriviaHistoryExpanded ? (
+                  <motion.div
+                    key="trivia-history"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.26, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-2">
+                      {quizHistory.length ? (
+                        quizHistory.map((item) => (
+                          <article key={item.id} className="rounded-xl border border-violet-300/30 bg-gradient-to-r from-violet-100 via-violet-50 to-cyan-100 p-4 shadow-[0_0_14px_rgba(129,140,248,0.12)] dark:from-violet-500/12 dark:via-violet-500/6 dark:to-cyan-500/10 dark:shadow-[0_0_14px_rgba(129,140,248,0.18)]">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <p className="font-medium text-slate-900 dark:text-white">{item.category} Quiz • {item.difficulty}</p>
+                                <p className="text-xs text-slate-600 dark:text-white/65">{new Date(item.completedAt).toLocaleString()}</p>
+                              </div>
+                              <span className="rounded-full border border-cyan-300/40 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-100">
+                                {item.correct}/{item.total}
+                              </span>
+                            </div>
+                            <div className="mt-2 flex items-center justify-between text-xs text-slate-600 dark:text-white/70">
+                              <span>Accuracy {item.total ? Math.round((item.correct / item.total) * 100) : 0}%</span>
+                              <span>{item.points} pts</span>
+                            </div>
+                          </article>
+                        ))
+                      ) : (
+                        <article className="rounded-card border border-violet-300/25 bg-violet-500/8 p-4 text-sm text-slate-600 dark:text-white/75">
+                          No quiz history yet. Complete a quiz to populate this section.
+                        </article>
+                      )}
                     </div>
-                    <span className="rounded-full border border-cyan-300/40 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-100">
-                      {item.correct}/{item.total}
-                    </span>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between text-xs text-slate-600 dark:text-white/70">
-                    <span>Accuracy {item.total ? Math.round((item.correct / item.total) * 100) : 0}%</span>
-                    <span>{item.points} pts</span>
-                  </div>
-                </article>
-              ))
-            ) : (
-              <article className="rounded-card border border-violet-300/25 bg-violet-500/8 p-4 text-sm text-slate-600 dark:text-white/75">
-                No quiz history yet. Complete a quiz to populate this section.
-              </article>
-            )}
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </article>
 
+            <article className="rounded-card border border-black/8 bg-white/70 p-4 dark:border-white/10 dark:bg-white/5">
+              <button
+                type="button"
+                onClick={() => setIsBattleHistoryExpanded((value) => !value)}
+                className="focus-ring mb-2 flex w-full items-center justify-between rounded-xl border border-cyan-300/35 bg-cyan-500/8 px-3 py-2 text-left"
+              >
+                <span className="inline-flex items-center gap-2 font-sora text-base font-semibold text-[var(--text-primary)]">
+                  <Swords className="h-4 w-4 text-cyan-500" /> 1v1 Battle Sessions
+                </span>
+                {isBattleHistoryExpanded ? <ChevronUp className="h-4 w-4 text-cyan-500" /> : <ChevronDown className="h-4 w-4 text-cyan-500" />}
+              </button>
+              <AnimatePresence initial={false}>
+                {isBattleHistoryExpanded ? (
+                  <motion.div
+                    key="battle-history"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.26, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-2">
+                      {battleHistory.length ? (
+                        battleHistory.map((entry) => {
+                          const isWin = entry.result === "win";
+                          const isLoss = entry.result === "loss";
+                          const badgeClass = isWin
+                            ? "border-emerald-300/55 bg-emerald-500/15 text-emerald-700 dark:border-emerald-400/45 dark:bg-emerald-400/15 dark:text-emerald-100"
+                            : isLoss
+                              ? "border-rose-300/55 bg-rose-500/15 text-rose-700 dark:border-rose-400/45 dark:bg-rose-400/15 dark:text-rose-100"
+                              : "border-amber-300/55 bg-amber-500/15 text-amber-700 dark:border-amber-400/45 dark:bg-amber-400/15 dark:text-amber-100";
+                          const shellClass = isWin
+                            ? "border-emerald-300/35 bg-[linear-gradient(140deg,rgba(236,253,245,0.9),rgba(209,250,229,0.6))] dark:border-emerald-400/25 dark:bg-[linear-gradient(140deg,rgba(16,185,129,0.18),rgba(16,185,129,0.08))]"
+                            : isLoss
+                              ? "border-rose-300/35 bg-[linear-gradient(140deg,rgba(255,241,242,0.9),rgba(254,205,211,0.55))] dark:border-rose-400/25 dark:bg-[linear-gradient(140deg,rgba(244,63,94,0.2),rgba(251,113,133,0.08))]"
+                              : "border-amber-300/35 bg-[linear-gradient(140deg,rgba(255,251,235,0.9),rgba(254,240,138,0.45))] dark:border-amber-400/25 dark:bg-[linear-gradient(140deg,rgba(245,158,11,0.2),rgba(251,191,36,0.08))]";
+
+                          return (
+                            <article key={entry.id} className={`rounded-2xl border px-3 py-2 text-sm shadow-[0_10px_26px_rgba(15,23,42,0.08)] backdrop-blur-md dark:shadow-[0_10px_26px_rgba(15,23,42,0.32)] ${shellClass}`}>
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="font-medium text-[var(--text-primary)]">{entry.mode} • vs {entry.opponentName}</p>
+                                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] ${badgeClass}`}>
+                                  {entry.result.toUpperCase()}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                                {entry.category} • {entry.userScore}-{entry.opponentScore} • {new Date(entry.playedAt).toLocaleString()} • +{entry.pointsEarned} pts
+                              </p>
+                            </article>
+                          );
+                        })
+                      ) : (
+                        <article className="rounded-card border border-cyan-300/25 bg-cyan-500/8 p-4 text-sm text-slate-600 dark:text-white/75">
+                          No 1v1 battle sessions yet. Finish a battle to populate this section.
+                        </article>
+                      )}
+                    </div>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </article>
           </section>
         ) : null}
 

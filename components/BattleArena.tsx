@@ -7,12 +7,14 @@ import CategoryCard from "@/components/CategoryCard";
 import ProfilePhoto from "@/components/ProfilePhoto";
 import Timer from "@/components/Timer";
 import { categoryMeta, questions } from "@/lib/mockData";
-import type { BattleState } from "@/lib/types";
+import type { BattleState, Question } from "@/lib/types";
 import AnswerButton from "@/components/AnswerButton";
 import { useProfilePhotoStore } from "@/lib/profilePhotoStore";
 import { useProfileStore } from "@/lib/profileStore";
 import {
+  clearBattleQueueMatchReadyInSupabase,
   createBattleQueueMatchInSupabase,
+  restartBattleQueueMatchInSupabase,
   heartbeatBattleQueueEntryInSupabase,
   loadBattleMatchScoreStateFromSupabase,
   loadBattleQuestionsFromSupabase,
@@ -37,17 +39,6 @@ const letters = ["A", "B", "C", "D"];
 const RANDOM_CATEGORY_ID = "__random__";
 const questionCountOptions = [10, 15, 20, 25, 30] as const;
 const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-const triviaApiCategoryMap: Record<string, string | null> = {
-  Science: "science",
-  History: "history",
-  Tech: "science",
-  Nature: "geography",
-  Anime: "film_and_tv",
-  Food: "food_and_drink",
-  Animals: "science",
-  Business: "society_and_culture",
-};
 
 const categorySemanticHints: Record<string, string[]> = {
   Science: ["laboratory", "experiment", "molecule", "physics", "astronomy", "biology"],
@@ -92,14 +83,6 @@ interface PicsWordPuzzle {
 interface BattleSetupResult {
   questions: PreparedBattleQuestion[];
   resolvedCategoryName: string;
-}
-
-interface TriviaApiQuestion {
-  id: string;
-  question: { text: string };
-  correctAnswer: string;
-  incorrectAnswers: string[];
-  difficulty?: string;
 }
 
 interface BattleRoundResult {
@@ -157,7 +140,7 @@ const battleModes: BattleMode[] = [
     icon: BookOpen,
     description: "Balanced 1v1 with standard timer and rounds.",
     rounds: 5,
-    secondsPerRound: 12,
+    secondsPerRound: 15,
   },
   {
     id: "pics-word",
@@ -173,7 +156,7 @@ const battleModes: BattleMode[] = [
     icon: CircleCheck,
     description: "Fast verdict rounds with binary choices.",
     rounds: 6,
-    secondsPerRound: 8,
+    secondsPerRound: 15,
   },
   {
     id: "guess-word",
@@ -181,7 +164,7 @@ const battleModes: BattleMode[] = [
     icon: Type,
     description: "Interpret clue-heavy prompts under pressure.",
     rounds: 5,
-    secondsPerRound: 10,
+    secondsPerRound: 15,
   },
   {
     id: "rapid-fire",
@@ -189,7 +172,7 @@ const battleModes: BattleMode[] = [
     icon: Flame,
     description: "Maximum speed mode with minimal thinking time.",
     rounds: 7,
-    secondsPerRound: 6,
+    secondsPerRound: 15,
   },
 ];
 
@@ -230,13 +213,6 @@ const takeUniqueItems = <T,>(groups: T[][], amount: number, keyFn: (item: T) => 
 
   if (!picked.length) {
     return [];
-  }
-
-  while (picked.length < amount) {
-    for (const item of shuffleArray(picked)) {
-      picked.push(item);
-      if (picked.length >= amount) break;
-    }
   }
 
   return picked.slice(0, amount);
@@ -338,12 +314,6 @@ const isSimpleQuestionText = (value: string) => {
   return wordCount <= 14 && !hasTrickyTerms;
 };
 
-const hasCategorySemanticMatch = (categoryName: string, text: string) => {
-  const hints = categorySemanticHints[categoryName] ?? [categoryName.toLowerCase()];
-  const normalized = text.toLowerCase();
-  return hints.some((hint) => normalized.includes(hint.toLowerCase()));
-};
-
 const getPicsFallbackImage = (categoryName: string, index: number) => {
   const localImages = ["/images/Quiz1.png", "/images/Quiz2.png", "/images/Quiz3.png", "/images/Quiz.jpg"];
   const categoryOffset = categoryName.length % localImages.length;
@@ -439,6 +409,45 @@ const toTrueFalseQuestion = (question: PreparedBattleQuestion): PreparedBattleQu
   };
 };
 
+const buildGeneratedCategoryQuestions = (
+  sourcePool: Question[],
+  categoryName: string,
+  needed: number,
+  startIndex = 0
+): Question[] => {
+  if (needed <= 0 || sourcePool.length === 0) return [];
+
+  const hints = categorySemanticHints[categoryName] ?? ["detail", "concept", "insight", "topic"];
+  const generated: Question[] = [];
+
+  for (let idx = 0; idx < needed; idx += 1) {
+    const source = sourcePool[(startIndex + idx) % sourcePool.length];
+    const variantNumber = startIndex + idx + 1;
+    const hint = hints[idx % hints.length];
+    const questionText = `${source.question.replace(/\?+$/g, "").trim()} [${categoryName} Challenge ${variantNumber}: ${hint}]?`;
+
+    const distractors = source.options.filter((option) => option !== source.correctAnswer);
+    const optionPool = Array.from(new Set([source.correctAnswer, ...distractors]));
+    while (optionPool.length < 4) {
+      optionPool.push(`${hint} option ${optionPool.length}`);
+    }
+
+    const shuffledOptions = [...optionPool].sort(() => Math.random() - 0.5).slice(0, 4);
+    if (!shuffledOptions.includes(source.correctAnswer)) {
+      shuffledOptions[0] = source.correctAnswer;
+    }
+
+    generated.push({
+      ...source,
+      id: `${source.id}-generated-${variantNumber}`,
+      question: questionText,
+      options: shuffledOptions as [string, string, string, string],
+    });
+  }
+
+  return generated;
+};
+
 const buildLocalBattleQuestions = (categoryName: string, modeId: BattleModeId, amount: number): BattleSetupResult => {
   const resolvedCategoryName = categoryName === RANDOM_CATEGORY_ID
     ? categoryMeta[Math.floor(Math.random() * categoryMeta.length)]?.name
@@ -456,8 +465,15 @@ const buildLocalBattleQuestions = (categoryName: string, modeId: BattleModeId, a
     amount,
     (item) => `${item.question}::${item.correctAnswer}`
   );
+  const generatedFill = buildGeneratedCategoryQuestions(
+    categoryPool,
+    selectedCategory.name,
+    Math.max(0, amount - picked.length),
+    picked.length
+  );
+  const preparedSource = [...picked, ...generatedFill].slice(0, amount);
 
-  const preparedQuestions = picked.map((question) => {
+  const preparedQuestions = preparedSource.map((question) => {
     if (modeId === "pics-word") {
       return toPicsWordQuestion(question.question, question.correctAnswer, selectedCategory.name);
     }
@@ -482,76 +498,7 @@ const buildLocalBattleQuestions = (categoryName: string, modeId: BattleModeId, a
 };
 
 const buildBattleQuestions = async (categoryName: string, modeId: BattleModeId, amount: number): Promise<BattleSetupResult> => {
-  const local = buildLocalBattleQuestions(categoryName, modeId, amount);
-  const selectedMode = battleModes.find((mode) => mode.id === modeId);
-  if (!selectedMode || !local.resolvedCategoryName) return local;
-
-  try {
-    const mapped = triviaApiCategoryMap[local.resolvedCategoryName] ?? null;
-    const params = new URLSearchParams({
-      limit: String(amount),
-      difficulties: "easy",
-    });
-
-    if (mapped) {
-      params.set("categories", mapped);
-    }
-
-    const response = await fetch(`https://the-trivia-api.com/v2/questions?${params.toString()}`, {
-      cache: "no-store",
-    });
-    if (!response.ok) return local;
-
-    const data = (await response.json()) as TriviaApiQuestion[];
-    if (!Array.isArray(data) || !data.length) return local;
-
-    const easyData = data.filter((item) => (item.difficulty ?? "easy").toLowerCase() === "easy");
-    const relevantEasyData = easyData.filter((item) => {
-      const corpus = `${item.question.text} ${item.correctAnswer} ${(item.incorrectAnswers ?? []).join(" ")}`;
-      return hasCategorySemanticMatch(local.resolvedCategoryName, corpus);
-    });
-    const simpleRelevantData = relevantEasyData.filter((item) => isSimpleQuestionText(item.question.text));
-    const sourceData = takeUniqueItems(
-      [simpleRelevantData, relevantEasyData, easyData, data],
-      amount,
-      (item) => `${item.question.text}::${item.correctAnswer}`
-    );
-    if (!sourceData.length) return local;
-
-    const onlineQuestions: PreparedBattleQuestion[] = sourceData.map((item) => {
-      if (modeId === "pics-word") {
-        return toPicsWordQuestion(item.question.text, item.correctAnswer, local.resolvedCategoryName);
-      }
-
-      const options = shuffleArray([item.correctAnswer, ...item.incorrectAnswers]).slice(0, 4);
-      const question: PreparedBattleQuestion = {
-        question:
-          modeId === "guess-word"
-              ? `Guess the Word: ${item.question.text}`
-              : item.question.text,
-        options,
-        correctAnswer: item.correctAnswer,
-      };
-
-      if (modeId === "true-false") {
-        return toTrueFalseQuestion(question);
-      }
-
-      return question;
-    });
-
-    const merged = takeUniqueItems(
-      [onlineQuestions, local.questions],
-      amount,
-      (item) => `${item.question}::${item.correctAnswer}`
-    );
-    return {
-      resolvedCategoryName: local.resolvedCategoryName,
-      questions: merged,
-    };
-  } catch {
-    return local;
-  }
+  return buildLocalBattleQuestions(categoryName, modeId, amount);
 };
 
 export default function BattleArena() {
@@ -603,7 +550,13 @@ export default function BattleArena() {
   const [selectedQueuePlayer, setSelectedQueuePlayer] = useState<QueuePlayer | null>(null);
   const [queuedOpponentOverride, setQueuedOpponentOverride] = useState<BattleOpponent | null>(null);
   const [activeMatchToken, setActiveMatchToken] = useState<string | null>(null);
+  const [loadedQuestionsMatchToken, setLoadedQuestionsMatchToken] = useState<string | null>(null);
   const [matchStartsAtIso, setMatchStartsAtIso] = useState<string | null>(null);
+  const [selfLobbyReady, setSelfLobbyReady] = useState(false);
+  const [opponentLobbyReady, setOpponentLobbyReady] = useState(false);
+  const [hasRequestedRematch, setHasRequestedRematch] = useState(false);
+  const [isUpdatingLobbyReady, setIsUpdatingLobbyReady] = useState(false);
+  const [isStartingRematch, setIsStartingRematch] = useState(false);
   const [selectedMode, setSelectedMode] = useState<BattleModeId | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [resolvedCategoryName, setResolvedCategoryName] = useState<string | null>(null);
@@ -625,6 +578,10 @@ export default function BattleArena() {
   const questionsLoadedForMatchRef = useRef<string | null>(null);
   const preparedBattleQuestionsRef = useRef<PreparedBattleQuestion[] | null>(null);
   const preparedResolvedCategoryRef = useRef<string | null>(null);
+  const selectedModeRef = useRef<BattleModeId | null>(null);
+  const selectedCategoryLabelRef = useRef<string | null>(null);
+  const rematchLaunchTokenRef = useRef<string | null>(null);
+  const finishedReadyClearedMatchRef = useRef<string | null>(null);
 
   const activeMode = useMemo(
     () => battleModes.find((mode) => mode.id === selectedMode) ?? null,
@@ -635,6 +592,11 @@ export default function BattleArena() {
   const selectedCategoryLabel = selectedCategory === RANDOM_CATEGORY_ID ? "Random" : activeCategory?.name ?? null;
   const battleCategoryLabel = selectedCategory === RANDOM_CATEGORY_ID ? `Random • ${resolvedCategoryName ?? "Picking category..."}` : resolvedCategoryName ?? activeCategory?.name ?? null;
   const isBattleOngoing = state === "searching" || state === "found" || state === "countdown" || state === "playing";
+
+  useEffect(() => {
+    selectedModeRef.current = selectedMode;
+    selectedCategoryLabelRef.current = selectedCategoryLabel;
+  }, [selectedCategoryLabel, selectedMode]);
 
   const question = battleQuestions[index];
   const currentPicsPuzzle = activeMode?.id === "pics-word" ? question?.picsWord ?? null : null;
@@ -667,10 +629,52 @@ export default function BattleArena() {
   }), []);
 
   const syncCountdownFromStart = useCallback((startsAtIso: string) => {
-    const remaining = Math.max(1, Math.ceil((new Date(startsAtIso).getTime() - Date.now()) / 1000));
+    const remaining = Math.max(0, Math.ceil((new Date(startsAtIso).getTime() - Date.now()) / 1000));
     setMatchStartsAtIso(startsAtIso);
     setCountdown(remaining);
   }, []);
+
+  const markQuestionsLoadedForMatch = useCallback((matchToken: string | null) => {
+    questionsLoadedForMatchRef.current = matchToken;
+    setLoadedQuestionsMatchToken(matchToken);
+  }, []);
+
+  const hasLoadedMatchQuestions = useMemo(() => {
+    if (!activeMatchToken) return battleQuestions.length > 0;
+    return loadedQuestionsMatchToken === activeMatchToken && battleQuestions.length > 0;
+  }, [activeMatchToken, battleQuestions.length, loadedQuestionsMatchToken]);
+
+  const bothLobbyReady = selfLobbyReady && opponentLobbyReady;
+
+  const toggleLobbyReady = useCallback(async () => {
+    if (state !== "found" || !activeMatchToken || !hasLoadedMatchQuestions || isUpdatingLobbyReady) return;
+
+    setIsUpdatingLobbyReady(true);
+    try {
+      if (selfLobbyReady) {
+        await clearBattleQueueMatchReadyInSupabase(activeMatchToken);
+        setSelfLobbyReady(false);
+      } else {
+        await markBattleQueueMatchReadyInSupabase(activeMatchToken);
+        setSelfLobbyReady(true);
+      }
+    } finally {
+      setIsUpdatingLobbyReady(false);
+    }
+  }, [activeMatchToken, hasLoadedMatchQuestions, isUpdatingLobbyReady, selfLobbyReady, state]);
+
+  const requestRematch = useCallback(async () => {
+    if (state !== "finished" || !activeMatchToken || isStartingRematch || isUpdatingLobbyReady) return;
+
+    setIsUpdatingLobbyReady(true);
+    try {
+      await markBattleQueueMatchReadyInSupabase(activeMatchToken);
+      setSelfLobbyReady(true);
+      setHasRequestedRematch(true);
+    } finally {
+      setIsUpdatingLobbyReady(false);
+    }
+  }, [activeMatchToken, isStartingRematch, isUpdatingLobbyReady, state]);
 
   const battleSummary = useMemo(() => {
     const totalRounds = roundResults.length || 1;
@@ -833,7 +837,7 @@ export default function BattleArena() {
     (userAnswer: string | null, userTimeSpent: number) => {
       if (!question || resolvingRound || answeredRoundMap[index]) return;
 
-      const totalSeconds = activeMode?.secondsPerRound ?? 12;
+      const totalSeconds = activeMode?.secondsPerRound ?? 15;
       const userCorrect = userAnswer === question.correctAnswer;
       const nextYouStreak = userCorrect ? youStreak + 1 : 0;
       const userCalc = userCorrect
@@ -998,7 +1002,32 @@ export default function BattleArena() {
       const ownQueue = await loadOwnBattleQueueStateFromSupabase();
       if (isCancelled) return;
 
+      if (!ownQueue) {
+        await upsertBattleQueueEntryInSupabase({
+          mode: selectedMode,
+          category: selectedCategoryLabel,
+          displayName,
+          tier,
+          photo: profilePhoto,
+          forceSearchReset: true,
+        });
+        return;
+      }
+
       if (ownQueue?.queueState === "matched" && ownQueue.matchStartsAt && ownQueue.matchToken && ownQueue.opponent) {
+        const matchState = await loadBattleMatchScoreStateFromSupabase(ownQueue.matchToken);
+        if (!matchState?.opponentPresent) {
+          await upsertBattleQueueEntryInSupabase({
+            mode: selectedMode,
+            category: selectedCategoryLabel,
+            displayName,
+            tier,
+            photo: profilePhoto,
+            forceSearchReset: true,
+          });
+          return;
+        }
+
         setMatchedOpponent({
           profileKey: ownQueue.opponent.profileKey,
           username: ownQueue.opponent.username,
@@ -1007,19 +1036,67 @@ export default function BattleArena() {
         });
         setHasSurrendered(false);
         setOpponentSurrendered(false);
+        setSelfLobbyReady(Boolean(ownQueue.matchReadyAt));
         setActiveMatchToken(ownQueue.matchToken);
         setQueuedOpponentOverride(null);
         syncCountdownFromStart(ownQueue.matchStartsAt);
-        if (preparedBattleQuestionsRef.current?.length) {
+        const isMatchHost = ownQueue.opponentProfileKey
+          ? ownQueue.profileKey < ownQueue.opponentProfileKey
+          : false;
+
+        if (preparedBattleQuestionsRef.current?.length && isMatchHost) {
           void storeBattleQuestionsInSupabase({
             matchToken: ownQueue.matchToken,
             questions: preparedBattleQuestionsRef.current,
             category: preparedResolvedCategoryRef.current ?? selectedCategoryLabel,
             mode: selectedMode,
           });
+          markQuestionsLoadedForMatch(ownQueue.matchToken);
+        } else {
+          markQuestionsLoadedForMatch(null);
         }
         setState("found");
         return;
+      }
+
+      if (queuedOpponentOverride?.profileKey && !matchmakingLockRef.current) {
+        matchmakingLockRef.current = true;
+        try {
+          const challengedMatch = await createBattleQueueMatchInSupabase({
+            mode: selectedMode,
+            category: selectedCategoryLabel,
+            opponent: {
+              profileKey: queuedOpponentOverride.profileKey,
+              username: queuedOpponentOverride.username,
+              tier: queuedOpponentOverride.rank,
+              photo: queuedOpponentOverride.photo,
+            },
+            selfSnapshot: {
+              username: displayName,
+              tier,
+              photo: profilePhoto,
+            },
+          });
+
+          if (challengedMatch && !isCancelled) {
+            setMatchedOpponent(queuedOpponentOverride);
+            setActiveMatchToken(challengedMatch.matchToken);
+            syncCountdownFromStart(challengedMatch.matchStartsAt);
+            if (preparedBattleQuestionsRef.current?.length) {
+              await storeBattleQuestionsInSupabase({
+                matchToken: challengedMatch.matchToken,
+                questions: preparedBattleQuestionsRef.current,
+                category: preparedResolvedCategoryRef.current ?? selectedCategoryLabel,
+                mode: selectedMode,
+              });
+              markQuestionsLoadedForMatch(challengedMatch.matchToken);
+            }
+            setState("found");
+            return;
+          }
+        } finally {
+          matchmakingLockRef.current = false;
+        }
       }
 
       const queued = await loadBattleQueueFromSupabase(selectedMode, selectedCategoryLabel);
@@ -1037,9 +1114,15 @@ export default function BattleArena() {
 
       setQueuePlayers(normalizedQueue);
 
-      const pickedEntry = queuedOpponentOverride
+      let pickedEntry = queuedOpponentOverride
         ? normalizedQueue.find((player) => player.id === queuedOpponentOverride.profileKey)
         : normalizedQueue[0];
+
+      // If the specifically challenged player left the queue, fall back to any available entry.
+      if (!pickedEntry && queuedOpponentOverride) {
+        setQueuedOpponentOverride(null);
+        pickedEntry = normalizedQueue[0];
+      }
 
       if (!pickedEntry || matchmakingLockRef.current) return;
 
@@ -1070,6 +1153,7 @@ export default function BattleArena() {
             category: preparedResolvedCategoryRef.current ?? selectedCategoryLabel,
             mode: selectedMode,
           });
+          markQuestionsLoadedForMatch(createdMatch.matchToken);
         }
         setState("found");
       } finally {
@@ -1096,6 +1180,7 @@ export default function BattleArena() {
     state,
     syncCountdownFromStart,
     tier,
+    markQuestionsLoadedForMatch,
     toBattleOpponent,
     toQueueProfileSnapshot,
   ]);
@@ -1104,13 +1189,28 @@ export default function BattleArena() {
     if (state !== "found") return;
 
     const loadSharedQuestions = async () => {
-      if (activeMatchToken && questionsLoadedForMatchRef.current !== activeMatchToken) {
-        const loadedQuestions = await loadBattleQuestionsFromSupabase(activeMatchToken);
+      if (activeMatchToken && loadedQuestionsMatchToken !== activeMatchToken) {
+        let loadedQuestions = await loadBattleQuestionsFromSupabase(activeMatchToken);
+
+        const modeForPublish = selectedModeRef.current;
+        const categoryForPublish = selectedCategoryLabelRef.current;
+
+        if (!loadedQuestions?.questions?.length && preparedBattleQuestionsRef.current?.length && modeForPublish) {
+          await storeBattleQuestionsInSupabase({
+            matchToken: activeMatchToken,
+            questions: preparedBattleQuestionsRef.current,
+            category: preparedResolvedCategoryRef.current ?? categoryForPublish ?? "Random",
+            mode: modeForPublish,
+          });
+
+          loadedQuestions = await loadBattleQuestionsFromSupabase(activeMatchToken);
+        }
+
         if (loadedQuestions && loadedQuestions.questions.length > 0) {
           setBattleQuestions(loadedQuestions.questions);
           setResolvedCategoryName(loadedQuestions.category);
           questionsLoadedForMatchRef.current = activeMatchToken;
-          void markBattleQueueMatchReadyInSupabase(activeMatchToken);
+          setLoadedQuestionsMatchToken(activeMatchToken);
         }
       }
     };
@@ -1118,7 +1218,7 @@ export default function BattleArena() {
     void loadSharedQuestions();
 
     const interval = setInterval(() => {
-      if (activeMatchToken && questionsLoadedForMatchRef.current !== activeMatchToken) {
+      if (activeMatchToken && loadedQuestionsMatchToken !== activeMatchToken) {
         void loadSharedQuestions();
       }
 
@@ -1134,7 +1234,7 @@ export default function BattleArena() {
     }, 250);
 
     return () => clearInterval(interval);
-  }, [activeMatchToken, activeMode?.secondsPerRound, matchStartsAtIso, state]);
+  }, [activeMatchToken, activeMode?.secondsPerRound, loadedQuestionsMatchToken, matchStartsAtIso, state]);
 
   useEffect(() => {
     if (state !== "playing") return;
@@ -1155,7 +1255,7 @@ export default function BattleArena() {
       setTimeLeft((current) => {
         if (current <= 1) {
           clearInterval(interval);
-          const totalSeconds = activeMode?.secondsPerRound ?? 12;
+          const totalSeconds = activeMode?.secondsPerRound ?? 15;
           resolveRound(null, totalSeconds);
           return 0;
         }
@@ -1168,7 +1268,7 @@ export default function BattleArena() {
 
   useEffect(() => {
     if (state !== "playing" || isPicsWordMode) return;
-    setTimeLeft(activeMode?.secondsPerRound ?? 12);
+    setTimeLeft(activeMode?.secondsPerRound ?? 15);
   }, [activeMode?.secondsPerRound, index, isPicsWordMode, state]);
 
   const startSearch = async (overrides?: { mode?: BattleModeId; category?: string; opponent?: BattleOpponent | null }) => {
@@ -1195,7 +1295,35 @@ export default function BattleArena() {
         displayName,
         tier,
         photo: profilePhoto,
+        forceSearchReset: true,
       });
+
+      let ownQueueAfterUpsert = await loadOwnBattleQueueStateFromSupabase();
+      const queueReady = Boolean(
+        ownQueueAfterUpsert
+          && ownQueueAfterUpsert.mode === modeToUse
+          && ownQueueAfterUpsert.category === categoryLabelToUse
+      );
+
+      if (!queueReady) {
+        await upsertBattleQueueEntryInSupabase({
+          mode: modeToUse,
+          category: categoryLabelToUse,
+          displayName,
+          tier,
+          photo: profilePhoto,
+          forceSearchReset: true,
+        });
+        ownQueueAfterUpsert = await loadOwnBattleQueueStateFromSupabase();
+      }
+
+      if (!ownQueueAfterUpsert) {
+        setRoundNotification({
+          title: "Queue Sync Failed",
+          body: "Unable to join the live queue. Please retry.",
+        });
+        return;
+      }
 
       const overrideOpponent = overrides?.opponent ?? queuedOpponentOverride;
       if (overrideOpponent?.profileKey) {
@@ -1224,6 +1352,7 @@ export default function BattleArena() {
             category: preparedResolvedCategoryRef.current ?? categoryLabelToUse,
             mode: modeToUse,
           });
+          markQuestionsLoadedForMatch(immediateMatch.matchToken);
         }
       }
 
@@ -1253,6 +1382,9 @@ export default function BattleArena() {
       setShowSurrenderConfirm(false);
       setHasSurrendered(false);
       setOpponentSurrendered(false);
+      setSelfLobbyReady(false);
+      setOpponentLobbyReady(false);
+      setIsUpdatingLobbyReady(false);
       setIsAwaitingOpponentFinish(false);
       setResolvedOpponentFinalScore(null);
       setResolvedFinalWinner(null);
@@ -1260,14 +1392,18 @@ export default function BattleArena() {
       setPendingLeaveHref(null);
       forfeitRecordedRef.current = false;
       finishSubmittedRef.current = false;
-      questionsLoadedForMatchRef.current = null;
+      markQuestionsLoadedForMatch(null);
       syncedLiveScoreRef.current = -1;
       setRoundNotification(null);
       setZoomedImage(null);
       setSelectedQueuePlayer(null);
       setMatchElapsedSeconds(0);
-      setTimeLeft(modeDetails?.secondsPerRound ?? 12);
+      setTimeLeft(modeDetails?.secondsPerRound ?? 15);
       setCountdown(5);
+      setIsStartingRematch(false);
+      setHasRequestedRematch(false);
+      rematchLaunchTokenRef.current = null;
+      finishedReadyClearedMatchRef.current = null;
       if (overrideOpponent) {
         setMatchedOpponent(overrideOpponent);
       } else {
@@ -1302,12 +1438,15 @@ export default function BattleArena() {
     setShowSurrenderConfirm(false);
     setHasSurrendered(false);
     setOpponentSurrendered(false);
+    setSelfLobbyReady(false);
+    setOpponentLobbyReady(false);
+    setIsUpdatingLobbyReady(false);
     setIsAwaitingOpponentFinish(false);
     setResolvedOpponentFinalScore(null);
     setResolvedFinalWinner(null);
     setResolvedCategoryName(null);
     setMatchElapsedSeconds(0);
-    setTimeLeft(activeMode?.secondsPerRound ?? 12);
+    setTimeLeft(activeMode?.secondsPerRound ?? 15);
     setIsPreparingMatch(false);
     setShowLeaveConfirm(false);
     setPendingLeaveHref(null);
@@ -1315,9 +1454,13 @@ export default function BattleArena() {
     setZoomedImage(null);
     setSelectedQueuePlayer(null);
     setQueuedOpponentOverride(null);
+    setIsStartingRematch(false);
+    setHasRequestedRematch(false);
+    rematchLaunchTokenRef.current = null;
+    finishedReadyClearedMatchRef.current = null;
     forfeitRecordedRef.current = false;
     finishSubmittedRef.current = false;
-    questionsLoadedForMatchRef.current = null;
+    markQuestionsLoadedForMatch(null);
     preparedBattleQuestionsRef.current = null;
     preparedResolvedCategoryRef.current = null;
     syncedLiveScoreRef.current = -1;
@@ -1329,7 +1472,7 @@ export default function BattleArena() {
   }, [leaveActiveQueue, state]);
 
   useEffect(() => {
-    if (state !== "found" && state !== "playing" && !(state === "finished" && isAwaitingOpponentFinish)) return;
+    if (state !== "found" && state !== "playing" && state !== "finished") return;
 
     let isCancelled = false;
 
@@ -1337,12 +1480,67 @@ export default function BattleArena() {
       const ownQueue = await loadOwnBattleQueueStateFromSupabase();
       if (isCancelled || !ownQueue) return;
 
+      if (
+        state === "finished"
+        && ownQueue.queueState === "matched"
+        && ownQueue.matchStartsAt
+        && ownQueue.matchToken
+        && ownQueue.opponent
+        && ownQueue.matchToken !== activeMatchToken
+      ) {
+        setMatchedOpponent({
+          profileKey: ownQueue.opponent.profileKey,
+          username: ownQueue.opponent.username,
+          rank: ownQueue.opponent.tier,
+          photo: ownQueue.opponent.photo,
+        });
+        setActiveMatchToken(ownQueue.matchToken);
+        syncCountdownFromStart(ownQueue.matchStartsAt);
+        setSelfLobbyReady(Boolean(ownQueue.matchReadyAt));
+        setOpponentLobbyReady(false);
+        setIsUpdatingLobbyReady(false);
+        setIsAwaitingOpponentFinish(false);
+        setResolvedOpponentFinalScore(null);
+        setResolvedFinalWinner(null);
+        setHasRequestedRematch(false);
+        setIndex(0);
+        setSelected(null);
+        setRevealed(false);
+        setResolvingRound(false);
+        setYouScore(0);
+        setOpponentScore(0);
+        setYouCorrectCount(0);
+        setOpponentCorrectCount(0);
+        setYouStreak(0);
+        setOpponentStreak(0);
+        setBestYouStreak(0);
+        setBestOpponentStreak(0);
+        setRoundResults([]);
+        setRoundBurst(null);
+        setCurrentHintPenalty(0);
+        setPendingHintDebt(0);
+        setAnsweredRoundMap({});
+        setMatchElapsedSeconds(0);
+        setTimeLeft(activeMode?.secondsPerRound ?? 15);
+        setHasSurrendered(false);
+        setOpponentSurrendered(false);
+        finishSubmittedRef.current = false;
+        syncedLiveScoreRef.current = -1;
+        questionsLoadedForMatchRef.current = null;
+        setLoadedQuestionsMatchToken(null);
+        setState("found");
+        return;
+      }
+
       if (!activeMatchToken && ownQueue.matchToken) {
         setActiveMatchToken(ownQueue.matchToken);
       }
 
       if (state === "found" && ownQueue.matchStartsAt) {
         syncCountdownFromStart(ownQueue.matchStartsAt);
+      }
+      if (state === "found") {
+        setSelfLobbyReady(Boolean(ownQueue.matchReadyAt));
       }
 
       const matchToken = activeMatchToken ?? ownQueue.matchToken;
@@ -1354,6 +1552,10 @@ export default function BattleArena() {
           ? Math.round((matchState.opponentLiveAccuracy / 100) * roundResults.length) 
           : 0);
         setOpponentStreak(matchState.opponentLiveStreak);
+        if (state === "found") {
+          setSelfLobbyReady(matchState.selfReady);
+          setOpponentLobbyReady(matchState.opponentReady);
+        }
 
         if (matchState.surrendered && matchState.surrenderedByProfileKey && matchState.surrenderedByProfileKey !== matchState.selfProfileKey) {
           setShowSurrenderConfirm(false);
@@ -1368,13 +1570,16 @@ export default function BattleArena() {
           return;
         }
 
-        if (state === "found" && matchState.selfReady && matchState.opponentReady) {
+        if (state === "found") {
           const hasReachedStart = !matchStartsAtIso || new Date(matchStartsAtIso).getTime() <= Date.now();
-          if (hasReachedStart) {
+          const bothReady = matchState.selfReady && matchState.opponentReady;
+          const sharedQuestionsLoaded = (loadedQuestionsMatchToken === matchToken) && battleQuestions.length > 0;
+
+          if (hasReachedStart && bothReady && sharedQuestionsLoaded) {
             setState("playing");
             roundStartedAtRef.current = Date.now();
             setMatchElapsedSeconds(0);
-            setTimeLeft(activeMode?.secondsPerRound ?? 12);
+            setTimeLeft(activeMode?.secondsPerRound ?? 15);
             return;
           }
         }
@@ -1403,7 +1608,7 @@ export default function BattleArena() {
       isCancelled = true;
       clearInterval(interval);
     };
-  }, [activeMatchToken, activeMode?.secondsPerRound, isAwaitingOpponentFinish, matchedOpponent.username, matchStartsAtIso, opponentScore, roundResults.length, state, syncCountdownFromStart]);
+  }, [activeMatchToken, activeMode?.secondsPerRound, battleQuestions.length, isAwaitingOpponentFinish, loadedQuestionsMatchToken, matchedOpponent.username, matchStartsAtIso, opponentScore, roundResults.length, state, syncCountdownFromStart]);
 
   useEffect(() => {
     if (state !== "playing" || !activeMatchToken) return;
@@ -1460,6 +1665,122 @@ export default function BattleArena() {
       clearInterval(interval);
     };
   }, [activeMatchToken, hasSurrendered, opponentScore, opponentSurrendered, state, youScore]);
+
+  useEffect(() => {
+    if (state !== "finished" || !activeMatchToken) return;
+    if (finishedReadyClearedMatchRef.current === activeMatchToken) return;
+
+    finishedReadyClearedMatchRef.current = activeMatchToken;
+    setSelfLobbyReady(false);
+    setOpponentLobbyReady(false);
+    setHasRequestedRematch(false);
+    void clearBattleQueueMatchReadyInSupabase(activeMatchToken);
+  }, [activeMatchToken, state]);
+
+  useEffect(() => {
+    if (state !== "finished" || !activeMatchToken || !selectedMode || !selectedCategory) return;
+    if (hasSurrendered || opponentSurrendered || isStartingRematch || !hasRequestedRematch) return;
+
+    let isCancelled = false;
+
+    const syncRematch = async () => {
+      const ownQueue = await loadOwnBattleQueueStateFromSupabase();
+      if (isCancelled || !ownQueue?.opponentProfileKey) return;
+
+      const matchState = await loadBattleMatchScoreStateFromSupabase(activeMatchToken);
+      if (isCancelled || !matchState) return;
+
+      setSelfLobbyReady(matchState.selfReady);
+      setOpponentLobbyReady(matchState.opponentReady);
+
+      if (!matchState.selfReady || !matchState.opponentReady) return;
+      if (ownQueue.profileKey >= ownQueue.opponentProfileKey) return;
+      if (rematchLaunchTokenRef.current === activeMatchToken) return;
+
+      rematchLaunchTokenRef.current = activeMatchToken;
+      setIsStartingRematch(true);
+      try {
+        const prepared = await buildBattleQuestions(selectedCategory, selectedMode, selectedQuestionCount);
+        if (!prepared.questions.length) {
+          rematchLaunchTokenRef.current = null;
+          return;
+        }
+
+        preparedBattleQuestionsRef.current = prepared.questions;
+        preparedResolvedCategoryRef.current = prepared.resolvedCategoryName;
+
+        const restarted = await restartBattleQueueMatchInSupabase(activeMatchToken);
+        if (!restarted || isCancelled) {
+          rematchLaunchTokenRef.current = null;
+          return;
+        }
+
+        await storeBattleQuestionsInSupabase({
+          matchToken: restarted.matchToken,
+          questions: prepared.questions,
+          category: prepared.resolvedCategoryName,
+          mode: selectedMode,
+        });
+
+        setSelectedMode(selectedMode);
+        setSelectedCategory(selectedCategory);
+        setBattleQuestions(prepared.questions);
+        setResolvedCategoryName(prepared.resolvedCategoryName);
+        setMatchedOpponent({
+          profileKey: ownQueue.opponent?.profileKey,
+          username: ownQueue.opponent?.username ?? matchedOpponent.username,
+          rank: ownQueue.opponent?.tier ?? matchedOpponent.rank,
+          photo: ownQueue.opponent?.photo ?? matchedOpponent.photo,
+        });
+        setState("found");
+        setActiveMatchToken(restarted.matchToken);
+        syncCountdownFromStart(restarted.matchStartsAt);
+        setSelfLobbyReady(false);
+        setOpponentLobbyReady(false);
+        setIsUpdatingLobbyReady(false);
+        setLoadedQuestionsMatchToken(restarted.matchToken);
+        questionsLoadedForMatchRef.current = restarted.matchToken;
+        setYouScore(0);
+        setOpponentScore(0);
+        setYouCorrectCount(0);
+        setOpponentCorrectCount(0);
+        setYouStreak(0);
+        setOpponentStreak(0);
+        setBestYouStreak(0);
+        setBestOpponentStreak(0);
+        setRoundResults([]);
+        setRoundBurst(null);
+        setCurrentHintPenalty(0);
+        setPendingHintDebt(0);
+        setAnsweredRoundMap({});
+        setShowSurrenderConfirm(false);
+        setHasSurrendered(false);
+        setOpponentSurrendered(false);
+        setIsAwaitingOpponentFinish(false);
+        setResolvedOpponentFinalScore(null);
+        setResolvedFinalWinner(null);
+        setHasRequestedRematch(false);
+        setMatchElapsedSeconds(0);
+        setTimeLeft(selectedMode === "pics-word" ? 14 : 15);
+        roundStartedAtRef.current = null;
+        finishSubmittedRef.current = false;
+        syncedLiveScoreRef.current = -1;
+      } finally {
+        setIsStartingRematch(false);
+        setHasRequestedRematch(false);
+      }
+    };
+
+    void syncRematch();
+    const interval = setInterval(() => {
+      void syncRematch();
+    }, 1200);
+
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
+  }, [activeMatchToken, hasRequestedRematch, hasSurrendered, isStartingRematch, opponentSurrendered, selectedCategory, selectedMode, selectedQuestionCount, state, syncCountdownFromStart, matchedOpponent.photo, matchedOpponent.rank, matchedOpponent.username]);
 
   useEffect(() => {
     if (state !== "finished" || !selectedMode || !selectedCategory) return;
@@ -1963,8 +2284,50 @@ export default function BattleArena() {
             <div className="mt-5 flex justify-center">
               <div className="glass inline-flex items-center gap-3 rounded-full border border-cyan-400/25 bg-cyan-500/10 px-4 py-2 text-sm text-[var(--text-primary)]">
                 <span className="font-semibold text-cyan-200"></span>
-                <span className="text-[var(--text-secondary)]">Match begins in {countdown}s</span>
+                <span className="text-[var(--text-secondary)]">
+                  {bothLobbyReady ? `Match begins in ${countdown}s` : "Waiting for both players to be ready"}
+                </span>
               </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs">
+              <span className={cx(
+                "rounded-full border px-2.5 py-1 font-semibold",
+                selfLobbyReady
+                  ? "border-emerald-400/35 bg-emerald-500/12 text-emerald-200"
+                  : "border-slate-400/30 bg-white/8 text-[var(--text-secondary)]"
+              )}>
+                You: {selfLobbyReady ? "Ready" : "Not ready"}
+              </span>
+              <span className={cx(
+                "rounded-full border px-2.5 py-1 font-semibold",
+                opponentLobbyReady
+                  ? "border-emerald-400/35 bg-emerald-500/12 text-emerald-200"
+                  : "border-slate-400/30 bg-white/8 text-[var(--text-secondary)]"
+              )}>
+                Opponent: {opponentLobbyReady ? "Ready" : "Waiting"}
+              </span>
+            </div>
+            <div className="mt-3 flex justify-center">
+              <button
+                type="button"
+                onClick={() => void toggleLobbyReady()}
+                disabled={!hasLoadedMatchQuestions || isUpdatingLobbyReady}
+                className={cx(
+                  "focus-ring arcade-btn rounded-button border px-4 py-2 text-sm font-semibold",
+                  selfLobbyReady
+                    ? "border-emerald-400/40 bg-emerald-500/12 text-emerald-100"
+                    : "border-cyan-400/35 bg-cyan-500/12 text-cyan-100",
+                  (!hasLoadedMatchQuestions || isUpdatingLobbyReady) && "cursor-not-allowed opacity-55"
+                )}
+              >
+                {isUpdatingLobbyReady
+                  ? "Updating ready..."
+                  : selfLobbyReady
+                    ? "Unready"
+                    : hasLoadedMatchQuestions
+                      ? "Ready"
+                      : "Loading match..."}
+              </button>
             </div>
           </motion.div>
         )}
@@ -2049,7 +2412,7 @@ export default function BattleArena() {
             {!isPicsWordMode ? (
               <div className="mb-3 flex justify-center">
                 <div className="rounded-full border border-cyan-400/25 bg-cyan-500/10 px-3 py-1.5">
-                  <Timer timeLeft={timeLeft} total={activeMode?.secondsPerRound ?? 12} />
+                  <Timer timeLeft={timeLeft} total={activeMode?.secondsPerRound ?? 15} />
                 </div>
               </div>
             ) : null}
@@ -2485,14 +2848,14 @@ export default function BattleArena() {
               <button
                 type="button"
                 aria-label="Rematch"
-                onClick={() => void startSearch()}
+                onClick={() => void requestRematch()}
                 disabled={!selectedMode || !selectedCategory}
                 className={cx(
                   "focus-ring arcade-btn btn-primary rounded-button px-4 py-2 text-sm",
                   (!selectedMode || !selectedCategory) && "cursor-not-allowed opacity-55"
                 )}
               >
-                Rematch
+                {isStartingRematch ? "Waiting..." : selfLobbyReady ? "Rematch Requested" : "Request Rematch"}
               </button>
               <button
                 type="button"

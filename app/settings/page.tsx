@@ -82,10 +82,10 @@ function SelectField({
         <select
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="focus-ring w-full appearance-none rounded-xl border border-slate-300 bg-white px-4 py-3 pr-10 text-sm text-slate-900 outline-none transition-colors hover:border-violet-400 dark:border-white/10 dark:bg-[var(--bg-card)] dark:text-[var(--text-primary)]"
+          className="focus-ring w-full appearance-none rounded-xl border border-slate-300 bg-white px-4 py-3 pr-10 text-sm text-slate-900 outline-none transition-colors hover:border-violet-400 [color-scheme:light] [&>option]:bg-white [&>option]:text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-slate-100 dark:[color-scheme:dark] dark:[&>option]:bg-slate-900 dark:[&>option]:text-slate-100"
         >
           {options.map((option) => (
-            <option key={option} value={option} className="bg-white text-slate-900 dark:bg-[var(--bg-card)] dark:text-[var(--text-primary)]">
+            <option key={option} value={option} className="bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100">
               {option}
             </option>
           ))}

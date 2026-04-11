@@ -408,14 +408,14 @@ export default function DashboardLanding() {
               <div className="space-y-2">
                 {activePreviewRows.map((row) => (
                   <Link key={`active-preview-${leaderboardMode}-${row.id}`} href={`/player/${encodeURIComponent(row.id)}`} className="focus-ring block rounded-xl">
-                    <div className={`grid grid-cols-[72px_minmax(0,1fr)_180px_140px] items-center gap-2 rounded-2xl border px-3 py-3 ${row.id === myProfileKey ? (leaderboardMode === "battle" ? "border-cyan-400/45 bg-cyan-500/10" : "border-violet-400/45 bg-violet-500/10") : "border-black/8 bg-white/60 dark:border-white/10 dark:bg-white/5"}`}>
-                      <p className="text-2xl">{row.rank === 1 ? "🥇" : row.rank === 2 ? "🥈" : row.rank === 3 ? "🥉" : `#${row.rank}`}</p>
+                    <div className={`grid grid-cols-[72px_minmax(0,1fr)_180px_140px] items-center gap-2 rounded-2xl border px-3 py-3 shadow-[0_10px_22px_rgba(15,23,42,0.1)] backdrop-blur-md transition-all ${row.rank === 1 ? "ring-1 ring-amber-300/45 shadow-[0_0_0_1px_rgba(251,191,36,0.35),0_14px_30px_rgba(245,158,11,0.28)]" : row.rank === 2 ? "ring-1 ring-sky-300/45 shadow-[0_0_0_1px_rgba(56,189,248,0.28),0_12px_24px_rgba(56,189,248,0.24)]" : row.rank === 3 ? "ring-1 ring-emerald-300/45 shadow-[0_0_0_1px_rgba(16,185,129,0.28),0_12px_24px_rgba(16,185,129,0.24)]" : ""} ${row.id === myProfileKey ? (leaderboardMode === "battle" ? "border-cyan-400/45 bg-[linear-gradient(145deg,rgba(34,211,238,0.2),rgba(14,116,144,0.12),rgba(30,41,59,0.08))] shadow-[0_14px_28px_rgba(34,211,238,0.2)]" : "border-violet-400/45 bg-[linear-gradient(145deg,rgba(139,92,246,0.2),rgba(124,58,237,0.12),rgba(30,41,59,0.08))] shadow-[0_14px_28px_rgba(124,58,237,0.2)]") : "border-black/8 bg-[linear-gradient(145deg,rgba(255,255,255,0.82),rgba(248,250,252,0.68))] hover:shadow-[0_14px_30px_rgba(15,23,42,0.16)] dark:border-white/10 dark:bg-[linear-gradient(145deg,rgba(30,41,59,0.42),rgba(15,23,42,0.34))]"}`}>
+                      <p className="text-2xl drop-shadow-[0_4px_8px_rgba(15,23,42,0.25)]">{row.rank === 1 ? "🥇" : row.rank === 2 ? "🥈" : row.rank === 3 ? "🥉" : `#${row.rank}`}</p>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <ProfilePhoto
                             photo={{ type: row.avatarType, value: row.avatarValue }}
                             fallbackText={row.username}
-                            className="h-7 w-7 border border-violet-300/55"
+                            className="h-7 w-7 border border-violet-300/55 shadow-[0_6px_12px_rgba(99,102,241,0.25)]"
                             textClassName="text-xs"
                           />
                           <p className="truncate text-2xl font-medium text-[var(--text-primary)]">{row.username}</p>
@@ -423,10 +423,18 @@ export default function DashboardLanding() {
                         <p className="text-[13px] text-[var(--text-secondary)]">{row.activityCount} {leaderboardMode === "battle" ? "battles" : "journeys"}</p>
                       </div>
                       <div>
-                        <p className="text-4xl font-semibold text-[var(--text-primary)]">{row.points.toLocaleString()}</p>
+                        <p className="text-4xl font-semibold text-[var(--text-primary)] drop-shadow-[0_6px_14px_rgba(15,23,42,0.2)]">{row.points.toLocaleString()}</p>
                       </div>
                       <div>
-                        <p className="inline-flex rounded-full border border-black/10 bg-black/5 px-3 py-1 text-xl text-[var(--text-secondary)] dark:border-white/15 dark:bg-white/5">{row.rankLabel}</p>
+                        <p className={`inline-flex rounded-full border px-3 py-1 text-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.65),0_6px_12px_rgba(15,23,42,0.08)] ${
+                          row.rankLabel === "Legendary"
+                            ? "border-amber-300/55 bg-amber-500/16 text-amber-700 dark:border-amber-300/45 dark:bg-amber-400/18 dark:text-amber-100"
+                            : row.rankLabel === "Expert"
+                              ? "border-fuchsia-300/55 bg-fuchsia-500/16 text-fuchsia-700 dark:border-fuchsia-300/45 dark:bg-fuchsia-400/16 dark:text-fuchsia-100"
+                              : row.rankLabel === "Pro"
+                                ? "border-cyan-300/55 bg-cyan-500/16 text-cyan-700 dark:border-cyan-300/45 dark:bg-cyan-400/16 dark:text-cyan-100"
+                                : "border-slate-300/55 bg-slate-500/14 text-slate-700 dark:border-slate-300/35 dark:bg-slate-400/14 dark:text-slate-100"
+                        }`}>{row.rankLabel}</p>
                       </div>
                     </div>
                   </Link>

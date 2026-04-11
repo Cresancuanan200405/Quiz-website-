@@ -12,6 +12,7 @@ import {
   Swords,
   Trophy,
   BrainCircuit,
+  Bell,
   Sparkles,
   ChevronLeft,
   ChevronRight,
@@ -33,6 +34,7 @@ const navItems = [
   { href: "/quiz", label: "Trivia Journey", icon: BrainCircuit },
   { href: "/battle", label: "1v1 Battle", icon: Swords },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
+  { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/trivia", label: "Trivia Hub", icon: Sparkles },
 ];
 

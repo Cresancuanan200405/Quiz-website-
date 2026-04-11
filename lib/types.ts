@@ -19,6 +19,8 @@ export interface LeaderboardUser {
   id: string;
   username: string;
   avatar: string;
+  avatarType?: "initials" | "icon" | "image";
+  avatarValue?: string;
   score: number;
   accuracy: number;
   quizCount: number;
