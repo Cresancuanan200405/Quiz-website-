@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Mail, Lock, Eye, EyeOff, User, Check } from "lucide-react";
@@ -18,8 +18,28 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const { login, register, loginWithSocial } = useAuthStore();
+  const { login, register, loginWithSocial, hydrateFromSession } = useAuthStore();
   const router = useRouter();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrate = async () => {
+      try {
+        const hasSession = await hydrateFromSession();
+        if (!cancelled && hasSession) {
+          router.replace("/dashboard");
+        }
+      } catch {
+        // Ignore hydration errors on first load.
+      }
+    };
+
+    void hydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrateFromSession, router]);
 
   const getStrength = (p: string) => {
     if (!p) return 0;

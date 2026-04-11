@@ -1,13 +1,14 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 import LoginForm from "@/components/auth/LoginForm";
 import ThemeToggle from "@/components/ThemeToggle";
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen w-full flex dark:bg-[#0A0B14] bg-[#F8F7FF] transition-colors duration-300">
-      <div className="hidden lg:flex lg:w-[55%] relative overflow-hidden dark:bg-[#0A0B14] bg-[#EEF0FF] flex-col justify-between p-12">
+    <div className="h-[100dvh] w-full overflow-y-auto lg:overflow-hidden flex dark:bg-[#0A0B14] bg-[#F8F7FF] transition-colors duration-300">
+      <div className="hidden lg:flex lg:w-[55%] relative overflow-hidden dark:bg-[#0A0B14] bg-[#EEF0FF] flex-col justify-between p-8 xl:p-12">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-violet-600/20 blur-[120px] animate-float-slow" />
           <div className="absolute bottom-[-10%] right-[10%] w-[400px] h-[400px] rounded-full bg-indigo-600/15 blur-[100px] animate-float-medium" />
@@ -22,9 +23,17 @@ export default function LoginPage() {
           />
         </div>
 
-        <div className="relative z-10 flex items-center gap-2">
-          <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center shadow-lg shadow-violet-500/40">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z"/></svg>
+        <div className="relative z-10 flex items-center gap-2.5">
+          <div className="relative grid h-12 w-12 place-items-center overflow-hidden rounded-2xl border border-violet-300/45 bg-white/18 shadow-[0_16px_34px_rgba(124,58,237,0.42),inset_0_1px_0_rgba(255,255,255,0.5)] backdrop-blur-xl dark:border-violet-300/35 dark:bg-white/10">
+            <div className="pointer-events-none absolute inset-[1px] rounded-[14px] bg-gradient-to-br from-white/45 via-white/14 to-violet-500/25" />
+            <Image
+              src="/images/Quiz2.png"
+              alt="QuizArena logo"
+              fill
+              sizes="48px"
+              className="relative z-10 rounded-[13px] object-cover p-[1px] drop-shadow-[0_7px_12px_rgba(124,58,237,0.55)]"
+              priority
+            />
           </div>
           <span className="font-bold text-xl dark:text-white text-gray-900" style={{ fontFamily: "Sora,sans-serif" }}>QuizArena</span>
         </div>
@@ -106,11 +115,19 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div className="w-full lg:w-[45%] flex flex-col dark:bg-[#0D0E1F] bg-white border-l dark:border-white/5 border-black/8">
-        <div className="flex items-center justify-between px-8 pt-8 pb-0">
+      <div className="w-full lg:w-[45%] h-full overflow-y-auto flex flex-col dark:bg-[#0D0E1F] bg-white border-l dark:border-white/5 border-black/8">
+        <div className="flex items-center justify-between px-8 pt-6 pb-0">
           <div className="flex lg:hidden items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-violet-600 flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z"/></svg>
+            <div className="relative grid h-10 w-10 place-items-center overflow-hidden rounded-2xl border border-violet-300/45 bg-white/18 shadow-[0_12px_24px_rgba(124,58,237,0.35),inset_0_1px_0_rgba(255,255,255,0.5)] backdrop-blur-xl dark:border-violet-300/35 dark:bg-white/10">
+              <div className="pointer-events-none absolute inset-[1px] rounded-[14px] bg-gradient-to-br from-white/45 via-white/12 to-violet-500/25" />
+              <Image
+                src="/images/Quiz2.png"
+                alt="QuizArena logo"
+                fill
+                sizes="40px"
+                className="relative z-10 rounded-[13px] object-cover p-[1px] drop-shadow-[0_5px_10px_rgba(124,58,237,0.45)]"
+                priority
+              />
             </div>
             <span className="font-bold text-lg dark:text-white text-gray-900" style={{ fontFamily: "Sora,sans-serif" }}>QuizArena</span>
           </div>
@@ -118,7 +135,7 @@ export default function LoginPage() {
           <ThemeToggle />
         </div>
 
-        <div className="flex-1 flex items-center justify-center px-8 py-8">
+        <div className="flex-1 min-h-0 flex items-center justify-center px-8 py-5">
           <div className="w-full max-w-[380px]">
             <LoginForm />
           </div>

@@ -19,6 +19,7 @@ interface AuthState {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   loginWithSocial: (provider: "google" | "discord" | "github") => Promise<void>;
+  hydrateFromSession: () => Promise<boolean>;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   changePassword: (newPassword: string) => Promise<void>;
@@ -534,8 +535,65 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: true,
         });
       },
-      loginWithSocial: async () => {
-        throw new Error("Social login is not configured yet. Use email and password.");
+      loginWithSocial: async (provider) => {
+        const supabase = getSupabaseBrowserClient();
+        if (!supabase) {
+          throw new Error("Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+        }
+
+        const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/login` : undefined;
+
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo,
+            scopes: "openid email profile",
+          },
+        });
+
+        if (error) {
+          throw new Error(error.message || "Unable to start Google sign in.");
+        }
+      },
+      hydrateFromSession: async () => {
+        const supabase = getSupabaseBrowserClient();
+        if (!supabase) return false;
+
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+
+        if (error || !user) return false;
+
+        const resolvedHandle = toSafeHandle(
+          user.user_metadata?.username ||
+          user.user_metadata?.full_name ||
+          user.email?.split("@")[0] ||
+          "player"
+        );
+
+        const profile = await ensureProfilesRow(
+          user.id,
+          user.user_metadata?.username || user.user_metadata?.full_name || user.email?.split("@")[0] || "Player",
+          resolvedHandle
+        );
+
+        if (shouldResetDataForUser(user.id, get().user?.id)) {
+          clearPersistedSessionData();
+        }
+
+        await ensureAppUserProfileRow(user.id, profile.username, profile.handle);
+        await hydrateStoresFromSupabase(user.id, profile.username, profile.handle);
+        setLastAuthUserId(user.id);
+
+        setAuthCookie("1");
+        set({
+          user: hydrateCurrentUser(user.id, profile.username, profile.handle, user.email ?? undefined),
+          isAuthenticated: true,
+        });
+
+        return true;
       },
       register: async (username, email, password) => {
         await delay(600);
@@ -646,9 +704,17 @@ export const useAuthStore = create<AuthState>()(
             error.code === "PGRST202" ||
             lowerMessage.includes("schema cache") ||
             lowerMessage.includes("could not find the function public.app_delete_my_account");
+          const isColumnMismatch =
+            lowerMessage.includes("column") &&
+            lowerMessage.includes("profile_id") &&
+            lowerMessage.includes("does not exist");
 
           if (isMissingRpc) {
             throw new Error("Delete account is not deployed yet. Apply migration 20260410_013 (or latest), then refresh the API schema cache and try again.");
+          }
+
+          if (isColumnMismatch) {
+            throw new Error("Delete account function is out of date for this schema. Apply migration 20260411000800_fix_delete_account_column_mismatch.sql, then try again.");
           }
 
           throw new Error(error.message || "Unable to delete account right now.");
