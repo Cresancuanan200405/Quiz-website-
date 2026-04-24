@@ -89,15 +89,16 @@ const getSignupCooldownSecondsRemaining = (email: string) => {
 };
 
 const getAppOrigin = () => {
-  const vercelUrl = process.env.NEXT_PUBLIC_VERCEL_URL?.trim();
-  if (vercelUrl) {
-    return vercelUrl.startsWith("http") ? vercelUrl.replace(/\/$/, "") : `https://${vercelUrl.replace(/\/$/, "")}`;
-  }
-
   const publicUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
 
   if (publicUrl) {
     return publicUrl.replace(/\/$/, "");
+  }
+
+  const vercelUrl = process.env.NEXT_PUBLIC_VERCEL_URL?.trim();
+  const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV?.trim().toLowerCase();
+  if (vercelUrl && vercelEnv === "production") {
+    return vercelUrl.startsWith("http") ? vercelUrl.replace(/\/$/, "") : `https://${vercelUrl.replace(/\/$/, "")}`;
   }
 
   if (typeof window !== "undefined") {
