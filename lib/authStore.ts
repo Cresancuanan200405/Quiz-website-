@@ -229,6 +229,42 @@ const hydrateCurrentUser = (id: string, username: string, handle: string, email?
   quizHistory: [],
 });
 
+const finalizeOAuthRedirect = async () => {
+  if (typeof window === "undefined") return false;
+
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return false;
+
+  const currentUrl = new URL(window.location.href);
+  const code = currentUrl.searchParams.get("code");
+  const fragmentParams = new URLSearchParams(currentUrl.hash.startsWith("#") ? currentUrl.hash.slice(1) : currentUrl.hash);
+  const accessToken = fragmentParams.get("access_token");
+  const refreshToken = fragmentParams.get("refresh_token");
+
+  if (!code && (!accessToken || !refreshToken)) {
+    return false;
+  }
+
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      throw new Error(error.message || "Unable to complete Google sign in.");
+    }
+  } else if (accessToken && refreshToken) {
+    const { error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+
+    if (error) {
+      throw new Error(error.message || "Unable to complete Google sign in.");
+    }
+  }
+
+  window.history.replaceState({}, document.title, `${currentUrl.pathname}${currentUrl.search}`);
+  return true;
+};
+
 const syncLiveIdentityToStores = (username: string, handle: string, setPhoto: boolean) => {
   useProfileStore.getState().setProfile({
     displayName: username,
@@ -558,6 +594,8 @@ export const useAuthStore = create<AuthState>()(
       hydrateFromSession: async () => {
         const supabase = getSupabaseBrowserClient();
         if (!supabase) return false;
+
+        await finalizeOAuthRedirect();
 
         const {
           data: { user },
