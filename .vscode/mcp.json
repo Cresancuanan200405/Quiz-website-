@@ -1,4 +1,14 @@
 {
+	"servers": {
+		"supabase": {
+			"type": "http",
+			"url": "https://mcp.supabase.com/mcp?project_ref=bjbclxypfwqduzhtgfhg"
+		},
+		"my-mcp-server-c9cac842": {
+			"url": "https://mcp.vercel.com",
+			"type": "http"
+		}
+	},
 	"inputs": [
 		{
 			"id": "token",
@@ -6,6 +16,5 @@
 			"description": "",
 			"password": true
 		}
-	],
-	"servers": {}
+	]
 }

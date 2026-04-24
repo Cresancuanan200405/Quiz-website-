@@ -88,6 +88,25 @@ const getSignupCooldownSecondsRemaining = (email: string) => {
   return remainingMs > 0 ? Math.ceil(remainingMs / 1000) : 0;
 };
 
+const getAppOrigin = () => {
+  const vercelUrl = process.env.NEXT_PUBLIC_VERCEL_URL?.trim();
+  if (vercelUrl) {
+    return vercelUrl.startsWith("http") ? vercelUrl.replace(/\/$/, "") : `https://${vercelUrl.replace(/\/$/, "")}`;
+  }
+
+  const publicUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+
+  if (publicUrl) {
+    return publicUrl.replace(/\/$/, "");
+  }
+
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+
+  return undefined;
+};
+
 const clearPersistedSessionData = () => {
   if (typeof window === "undefined") return;
 
@@ -577,7 +596,8 @@ export const useAuthStore = create<AuthState>()(
           throw new Error("Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
         }
 
-        const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/login` : undefined;
+        const appOrigin = getAppOrigin();
+        const redirectTo = appOrigin ? `${appOrigin}/login` : undefined;
 
         const { error } = await supabase.auth.signInWithOAuth({
           provider,

@@ -35,7 +35,12 @@ npm run dev
 5. In Supabase Authentication URL settings, add your app URL(s):
 	- `http://localhost:3000`
 	- your production domain (if deployed)
-6. Ensure env vars are present in the app runtime:
+6. Set the app origin used by the login callback:
+	- On Vercel, the app will prefer `NEXT_PUBLIC_VERCEL_URL` automatically.
+	- If you want a manual override, set `NEXT_PUBLIC_APP_URL=https://your-production-domain.vercel.app`
+	- keep local origin values only for local development
+7. In Supabase Auth, make sure both Site URL and Redirect URLs include your deployed domain as well as localhost for dev.
+8. Ensure env vars are present in the app runtime:
 	- `NEXT_PUBLIC_SUPABASE_URL`
 	- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
