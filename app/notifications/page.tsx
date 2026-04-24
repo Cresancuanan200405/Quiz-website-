@@ -37,7 +37,7 @@ export default function NotificationsPage() {
   const [archive, setArchive] = useState<NotificationFeedItem[]>([]);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-  const [page, setPage] = useState(1);
+  const [requestedPage, setRequestedPage] = useState(1);
 
   useEffect(() => {
     const hydrate = () => {
@@ -85,13 +85,7 @@ export default function NotificationsPage() {
     [visibleFiltered.length]
   );
 
-  useEffect(() => {
-    setPage(1);
-  }, [activeTab, readFilter]);
-
-  useEffect(() => {
-    setPage((current) => Math.min(current, totalPages));
-  }, [totalPages]);
+  const page = useMemo(() => Math.min(requestedPage, totalPages), [requestedPage, totalPages]);
 
   const pageStart = (page - 1) * PAGE_SIZE;
   const pagedItems = useMemo(
@@ -196,7 +190,10 @@ export default function NotificationsPage() {
                 <button
                   key={tabId}
                   type="button"
-                  onClick={() => setActiveTab(tabId)}
+                  onClick={() => {
+                    setActiveTab(tabId);
+                    setRequestedPage(1);
+                  }}
                   className={`focus-ring rounded-full px-3 py-1.5 text-xs font-medium ${
                     activeTab === tabId
                       ? "bg-violet-500/20 text-violet-700 dark:text-violet-100"
@@ -213,7 +210,10 @@ export default function NotificationsPage() {
                 <button
                   key={tab}
                   type="button"
-                  onClick={() => setReadFilter(tab)}
+                  onClick={() => {
+                    setReadFilter(tab);
+                    setRequestedPage(1);
+                  }}
                   className={`focus-ring rounded-full px-3 py-1.5 text-xs capitalize ${
                     readFilter === tab
                       ? "bg-cyan-500/20 text-cyan-700 dark:text-cyan-100"
@@ -315,7 +315,7 @@ export default function NotificationsPage() {
                 <div className="flex items-center justify-end gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                    onClick={() => setRequestedPage((current) => Math.max(1, current - 1))}
                     disabled={page <= 1}
                     className="focus-ring rounded-full border border-black/10 px-3 py-1.5 text-xs text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15"
                   >
@@ -323,7 +323,7 @@ export default function NotificationsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                    onClick={() => setRequestedPage((current) => Math.min(totalPages, current + 1))}
                     disabled={page >= totalPages}
                     className="focus-ring rounded-full border border-black/10 px-3 py-1.5 text-xs text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15"
                   >

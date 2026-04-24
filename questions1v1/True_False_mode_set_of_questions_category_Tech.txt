@@ -1,0 +1,110 @@
+TECH – TRUE OR FALSE (10)
+1.	Computers process data using binary. — True ✅ 
+2.	The internet was invented in 2020. — False ❌ 
+3.	A smartphone is a type of computer. — True ✅ 
+4.	Wi-Fi uses cables to connect devices. — False ❌ 
+5.	Software refers to physical parts of a computer. — False ❌ 
+6.	Hardware refers to physical components. — True ✅ 
+7.	Google is a search engine. — True ✅ 
+8.	HTML is a programming language. — False ❌ 
+9.	RAM stores data permanently. — False ❌ 
+10.	A CPU is the brain of the computer. — True ✅ 
+________________________________________
+TECH – TRUE OR FALSE (15)
+1.	Python is a programming language. — True ✅ 
+2.	Microsoft Word is a video game. — False ❌ 
+3.	Cybersecurity protects systems from attacks. — True ✅ 
+4.	Bluetooth works over short distances. — True ✅ 
+5.	Artificial Intelligence can learn patterns. — True ✅ 
+6.	A mouse is an input device. — True ✅ 
+7.	A monitor is an input device. — False ❌ 
+8.	Data can be stored in the cloud. — True ✅ 
+9.	Email was invented before computers. — False ❌ 
+10.	Operating systems manage computer hardware. — True ✅ 
+11.	Linux is an operating system. — True ✅ 
+12.	Smartphones cannot connect to the internet. — False ❌ 
+13.	USB stands for Universal Serial Bus. — True ✅ 
+14.	A keyboard is used for typing input. — True ✅ 
+15.	A printer is an output device. — True ✅ 
+________________________________________
+TECH – TRUE OR FALSE (20)
+1.	The first computer was very small. — False ❌ 
+2.	Supercomputers are very powerful. — True ✅ 
+3.	Cloud storage requires internet. — True ✅ 
+4.	Antivirus software protects computers. — True ✅ 
+5.	A firewall blocks unwanted access. — True ✅ 
+6.	HTML is used for creating websites. — True ✅ 
+7.	CSS is used for styling websites. — True ✅ 
+8.	JavaScript makes websites interactive. — True ✅ 
+9.	A database stores information. — True ✅ 
+10.	A router connects networks. — True ✅ 
+11.	A modem connects to the internet. — True ✅ 
+12.	AI means Artificial Intelligence. — True ✅ 
+13.	Robots always look like humans. — False ❌ 
+14.	Machines can replace all human jobs. — False ❌ 
+15.	The internet is a global network. — True ✅ 
+16.	Social media is a form of technology. — True ✅ 
+17.	Gaming consoles are computers. — True ✅ 
+18.	Laptops are portable computers. — True ✅ 
+19.	Tablets are larger than laptops. — False ❌ 
+20.	Technology only includes computers. — False ❌ 
+________________________________________
+TECH – TRUE OR FALSE (25)
+1.	Machine learning is part of AI. — True ✅ 
+2.	Deep learning uses neural networks. — True ✅ 
+3.	Big data refers to large datasets. — True ✅ 
+4.	Encryption protects data. — True ✅ 
+5.	Hackers always do illegal activities. — False ❌ 
+6.	Open-source software is free to modify. — True ✅ 
+7.	Android is an operating system. — True ✅ 
+8.	iOS is used in Apple devices. — True ✅ 
+9.	Smartphones use apps. — True ✅ 
+10.	Apps are software programs. — True ✅ 
+11.	HTML builds structure of websites. — True ✅ 
+12.	CSS adds style to websites. — True ✅ 
+13.	Java is only used for coffee. — False ❌ 
+14.	Cloud computing stores data online. — True ✅ 
+15.	Cybercrime involves illegal online activity. — True ✅ 
+16.	VPN hides user location. — True ✅ 
+17.	Blockchain is used in cryptocurrency. — True ✅ 
+18.	Bitcoin is a type of technology. — True ❌ (it is a cryptocurrency, not general tech concept) 
+19.	Servers store and deliver data. — True ✅ 
+20.	Websites run on servers. — True ✅ 
+21.	URLs are web addresses. — True ✅ 
+22.	HTTP is used for websites. — True ✅ 
+23.	HTTPS is more secure than HTTP. — True ✅ 
+24.	Cookies store browsing data. — True ✅ 
+25.	Browsers are used to access the internet. — True ✅ 
+________________________________________
+TECH – TRUE OR FALSE (30)
+1.	Quantum computers are widely used today. — False ❌ 
+2.	AI can recognize images. — True ✅ 
+3.	Self-driving cars use technology. — True ✅ 
+4.	Drones are unmanned devices. — True ✅ 
+5.	5G is faster than 4G. — True ✅ 
+6.	Wi-Fi stands for Wireless Fidelity. — True ✅ 
+7.	Bluetooth is a type of internet. — False ❌ 
+8.	A laptop is a portable computer. — True ✅ 
+9.	A desktop computer is not portable. — True ✅ 
+10.	Malware is harmful software. — True ✅ 
+11.	A virus is a type of malware. — True ✅ 
+12.	Spyware steals information. — True ✅ 
+13.	Phishing is a cyber attack. — True ✅ 
+14.	Cloud computing uses physical storage only. — False ❌ 
+15.	Data science involves analyzing data. — True ✅ 
+16.	Programming languages include Python. — True ✅ 
+17.	JavaScript is used for web development. — True ✅ 
+18.	Operating systems manage hardware. — True ✅ 
+19.	A GPU processes graphics. — True ✅ 
+20.	A CPU handles general processing. — True ✅ 
+21.	SSD is faster than HDD. — True ✅ 
+22.	USB-C is a type of connector. — True ✅ 
+23.	QR codes store data visually. — True ✅ 
+24.	Virtual reality is a simulation technology. — True ✅ 
+25.	Augmented reality adds digital elements. — True ✅ 
+26.	Robots can perform tasks automatically. — True ✅ 
+27.	AI always thinks like humans. — False ❌ 
+28.	The internet is controlled by one country. — False ❌ 
+29.	Software updates improve performance. — True ✅ 
+30.	Technology is always digital. — False ❌
+

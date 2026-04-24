@@ -7,6 +7,7 @@ import CategoryCard from "@/components/CategoryCard";
 import ProfilePhoto from "@/components/ProfilePhoto";
 import Timer from "@/components/Timer";
 import { categoryMeta, questions } from "@/lib/mockData";
+import { getTrueFalseBankQuestions } from "@/lib/trueFalseQuestionBank";
 import type { BattleState, Question } from "@/lib/types";
 import AnswerButton from "@/components/AnswerButton";
 import { useProfilePhotoStore } from "@/lib/profilePhotoStore";
@@ -469,6 +470,16 @@ const buildLocalBattleQuestions = (categoryName: string, modeId: BattleModeId, a
 
   if (!selectedCategory || !selectedMode) return { questions: [], resolvedCategoryName: resolvedCategoryName ?? "Random" };
 
+  if (modeId === "true-false") {
+    const trueFalseQuestions = getTrueFalseBankQuestions(selectedCategory.name, amount);
+    if (trueFalseQuestions.length >= amount) {
+      return {
+        questions: trueFalseQuestions.slice(0, amount),
+        resolvedCategoryName: selectedCategory.name,
+      };
+    }
+  }
+
   const categoryPool = questions.filter((question) => question.category === selectedCategory.name);
   const easyCategoryPool = categoryPool.filter((item) => item.difficulty === "Easy");
   const simpleEasyCategoryPool = easyCategoryPool.filter((item) => isSimpleQuestionText(item.question));
@@ -531,6 +542,8 @@ export default function BattleArena() {
   const [resolvingRound, setResolvingRound] = useState(false);
   const [youScore, setYouScore] = useState(0);
   const [opponentScore, setOpponentScore] = useState(0);
+  const [displayYouScore, setDisplayYouScore] = useState(0);
+  const [displayOpponentScore, setDisplayOpponentScore] = useState(0);
   const [youCorrectCount, setYouCorrectCount] = useState(0);
   const [opponentCorrectCount, setOpponentCorrectCount] = useState(0);
   const [youStreak, setYouStreak] = useState(0);
@@ -541,6 +554,7 @@ export default function BattleArena() {
   const [roundBurst, setRoundBurst] = useState<RoundBurst | null>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [pendingLeaveHref, setPendingLeaveHref] = useState<string | null>(null);
+  const [isLeavingBattle, setIsLeavingBattle] = useState(false);
   const [selectedQuestionCount, setSelectedQuestionCount] = useState<number>(10);
   const [isPreparingMatch, setIsPreparingMatch] = useState(false);
   const [picsSelectedIndices, setPicsSelectedIndices] = useState<number[]>([]);
@@ -589,6 +603,12 @@ export default function BattleArena() {
   const matchmakingLockRef = useRef(false);
   const finishSubmittedRef = useRef(false);
   const syncedLiveScoreRef = useRef<number>(-1);
+  const youScoreAnimationFrameRef = useRef<number | null>(null);
+  const opponentScoreAnimationFrameRef = useRef<number | null>(null);
+  const displayYouScoreRef = useRef(0);
+  const displayOpponentScoreRef = useRef(0);
+  const scoreFlashTimeoutRef = useRef<number | null>(null);
+  const battleGuardHistoryRef = useRef(false);
   const questionsLoadedForMatchRef = useRef<string | null>(null);
   const preparedBattleQuestionsRef = useRef<PreparedBattleQuestion[] | null>(null);
   const preparedResolvedCategoryRef = useRef<string | null>(null);
@@ -794,6 +814,117 @@ export default function BattleArena() {
     };
   }, [battleQuestions.length, opponentCorrectCount, opponentScore, roundResults, youCorrectCount, youScore]);
 
+  useEffect(() => {
+    displayYouScoreRef.current = displayYouScore;
+  }, [displayYouScore]);
+
+  useEffect(() => {
+    displayOpponentScoreRef.current = displayOpponentScore;
+  }, [displayOpponentScore]);
+
+  useEffect(() => {
+    if (youScoreAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(youScoreAnimationFrameRef.current);
+      youScoreAnimationFrameRef.current = null;
+    }
+
+    const startValue = displayYouScoreRef.current;
+    if (startValue === youScore) return;
+
+    const startedAt = performance.now();
+    const duration = 420;
+
+    if (scoreFlashTimeoutRef.current !== null) {
+      window.clearTimeout(scoreFlashTimeoutRef.current);
+      scoreFlashTimeoutRef.current = null;
+    }
+
+    scoreFlashTimeoutRef.current = window.setTimeout(() => {
+      scoreFlashTimeoutRef.current = null;
+    }, 850);
+
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayYouScore(Math.round(startValue + (youScore - startValue) * eased));
+
+      if (progress < 1) {
+        youScoreAnimationFrameRef.current = window.requestAnimationFrame(step);
+        return;
+      }
+
+      youScoreAnimationFrameRef.current = null;
+      setDisplayYouScore(youScore);
+    };
+
+    youScoreAnimationFrameRef.current = window.requestAnimationFrame(step);
+
+    return () => {
+      if (youScoreAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(youScoreAnimationFrameRef.current);
+        youScoreAnimationFrameRef.current = null;
+      }
+    };
+  }, [youScore]);
+
+  useEffect(() => {
+    if (opponentScoreAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(opponentScoreAnimationFrameRef.current);
+      opponentScoreAnimationFrameRef.current = null;
+    }
+
+    const startValue = displayOpponentScoreRef.current;
+    if (startValue === opponentScore) return;
+
+    const startedAt = performance.now();
+    const duration = 420;
+
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayOpponentScore(Math.round(startValue + (opponentScore - startValue) * eased));
+
+      if (progress < 1) {
+        opponentScoreAnimationFrameRef.current = window.requestAnimationFrame(step);
+        return;
+      }
+
+      opponentScoreAnimationFrameRef.current = null;
+      setDisplayOpponentScore(opponentScore);
+    };
+
+    opponentScoreAnimationFrameRef.current = window.requestAnimationFrame(step);
+
+    return () => {
+      if (opponentScoreAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(opponentScoreAnimationFrameRef.current);
+        opponentScoreAnimationFrameRef.current = null;
+      }
+    };
+  }, [opponentScore]);
+
+  useEffect(() => {
+    if (!isBattleOngoing) {
+      battleGuardHistoryRef.current = false;
+      return;
+    }
+
+    if (!battleGuardHistoryRef.current) {
+      battleGuardHistoryRef.current = true;
+      window.history.pushState({ battleLeaveGuard: true }, "", window.location.href);
+    }
+
+    const onPopState = () => {
+      if (!isBattleOngoing) return;
+      setPendingLeaveHref(null);
+      setShowLeaveConfirm(true);
+      window.history.pushState({ battleLeaveGuard: true }, "", window.location.href);
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [isBattleOngoing]);
+
   const finalOpponentScore = resolvedOpponentFinalScore ?? opponentScore;
   const finalWinner = resolvedFinalWinner ?? (youScore === finalOpponentScore ? "draw" : youScore > finalOpponentScore ? "you" : "opponent");
 
@@ -835,11 +966,23 @@ export default function BattleArena() {
     void removeBattleQueueEntryFromSupabase();
   }, [activeMatchToken]);
 
-  const persistForfeitResult = useCallback(() => {
+  const forfeitBattle = useCallback(async () => {
     if (forfeitRecordedRef.current || !selectedMode) return;
     forfeitRecordedRef.current = true;
 
     const forfeitOpponentScore = Math.max(opponentScore + 160, youScore + 120);
+    setHasSurrendered(true);
+    setOpponentSurrendered(false);
+    setResolvedOpponentFinalScore(forfeitOpponentScore);
+    setResolvedFinalWinner("opponent");
+    setOpponentScore((score) => Math.max(score, forfeitOpponentScore));
+    setState("finished");
+
+    const surrenderToken = await markBattleQueueSurrenderInSupabase();
+    if (surrenderToken) {
+      setActiveMatchToken(surrenderToken);
+    }
+
     recordBattleSession({
       mode: selectedMode,
       category: battleCategoryLabel ?? selectedCategoryLabel ?? selectedCategory ?? "Unknown",
@@ -859,19 +1002,31 @@ export default function BattleArena() {
     });
   }, [battleCategoryLabel, matchedOpponent.username, opponentScore, recordBattleSession, selectedCategory, selectedCategoryLabel, selectedMode, youScore]);
 
-  const confirmLeaveBattle = () => {
-    leaveActiveQueue();
-    persistForfeitResult();
-    const href = pendingLeaveHref;
-    setShowLeaveConfirm(false);
-    setPendingLeaveHref(null);
+  const confirmLeaveBattle = async () => {
+    setIsLeavingBattle(true);
+    try {
+      await forfeitBattle();
+      setRoundNotification({
+        title: "Forfeit Confirmed",
+        body: "Opponent wins by default. Leaving battle...",
+      });
+      await new Promise<void>((resolve) => {
+        window.setTimeout(() => resolve(), 700);
+      });
+      leaveActiveQueue();
+      const href = pendingLeaveHref;
+      setShowLeaveConfirm(false);
+      setPendingLeaveHref(null);
 
-    if (href) {
-      window.location.assign(href);
-      return;
+      if (href) {
+        window.location.assign(href);
+        return;
+      }
+
+      window.history.back();
+    } finally {
+      setIsLeavingBattle(false);
     }
-
-    resetToSetup();
   };
 
   const stayInBattle = () => {
@@ -914,16 +1069,10 @@ export default function BattleArena() {
   const surrenderBattle = useCallback(() => {
     if (state !== "playing") return;
     setShowSurrenderConfirm(false);
-    setHasSurrendered(true);
-    persistForfeitResult();
-    void markBattleQueueSurrenderInSupabase().then((token) => {
-      if (token) {
-        setActiveMatchToken(token);
-      }
+    void forfeitBattle().then(() => {
+      leaveActiveQueue();
     });
-    setOpponentScore((score) => Math.max(score, youScore + 120));
-    setState("finished");
-  }, [persistForfeitResult, state, youScore]);
+  }, [forfeitBattle, leaveActiveQueue, state]);
 
   const resolveRound = useCallback(
     (userAnswer: string | null, userTimeSpent: number) => {
@@ -1070,17 +1219,21 @@ export default function BattleArena() {
       if (!target) return;
 
       const anchor = target.closest("a[href]") as HTMLAnchorElement | null;
-      if (!anchor) return;
+      const actionable = target.closest("a[href],button,[role='button']") as HTMLElement | null;
+      if (!anchor && !actionable) return;
 
-      const href = anchor.getAttribute("href");
-      if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
-
-      const insideArena = arenaRef.current?.contains(anchor);
+      const insideArena = arenaRef.current?.contains(actionable ?? anchor ?? target);
       if (insideArena) return;
 
       event.preventDefault();
       event.stopPropagation();
-      setPendingLeaveHref(anchor.href);
+      if (anchor) {
+        const href = anchor.getAttribute("href");
+        if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+        setPendingLeaveHref(anchor.href);
+      } else {
+        setPendingLeaveHref(null);
+      }
       setShowLeaveConfirm(true);
     };
 
@@ -1471,6 +1624,8 @@ export default function BattleArena() {
       setResolvingRound(false);
       setYouScore(0);
       setOpponentScore(0);
+      setDisplayYouScore(0);
+      setDisplayOpponentScore(0);
       setYouCorrectCount(0);
       setOpponentCorrectCount(0);
       setYouStreak(0);
@@ -1528,6 +1683,8 @@ export default function BattleArena() {
     setResolvingRound(false);
     setYouScore(0);
     setOpponentScore(0);
+    setDisplayYouScore(0);
+    setDisplayOpponentScore(0);
     setYouCorrectCount(0);
     setOpponentCorrectCount(0);
     setYouStreak(0);
@@ -1616,6 +1773,8 @@ export default function BattleArena() {
         setResolvingRound(false);
         setYouScore(0);
         setOpponentScore(0);
+        setDisplayYouScore(0);
+        setDisplayOpponentScore(0);
         setYouCorrectCount(0);
         setOpponentCorrectCount(0);
         setYouStreak(0);
@@ -1851,6 +2010,8 @@ export default function BattleArena() {
         questionsLoadedForMatchRef.current = restarted.matchToken;
         setYouScore(0);
         setOpponentScore(0);
+        setDisplayYouScore(0);
+        setDisplayOpponentScore(0);
         setYouCorrectCount(0);
         setOpponentCorrectCount(0);
         setYouStreak(0);
@@ -2526,17 +2687,31 @@ export default function BattleArena() {
               </div>
             ) : null}
 
+            <div className="mb-3 flex justify-center">
+              <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/5 px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] dark:border-white/10 dark:bg-white/5">
+                <span className={cx(youScore === opponentScore ? "text-cyan-500" : youScore > opponentScore ? "text-emerald-500" : "text-orange-400") }>
+                  {youScore === opponentScore
+                    ? "Score tied"
+                    : youScore > opponentScore
+                      ? `You lead by ${youScore - opponentScore}`
+                      : `Opponent leads by ${opponentScore - youScore}`}
+                </span>
+                <span>•</span>
+                <span>{battleSummary.totalRoundsLabel || `${battleQuestions.length} rounds`}</span>
+              </div>
+            </div>
+
             <div className="mb-3 grid gap-2 sm:grid-cols-2">
               <div className="relative overflow-hidden rounded-[16px] border border-violet-400/25 bg-gradient-to-br from-violet-500/14 via-violet-500/8 to-transparent p-3 text-left">
                 <p className="text-xs uppercase tracking-[0.16em] text-[var(--text-muted)]">You</p>
                 <motion.p
-                  key={`you-${youScore}`}
-                  initial={{ opacity: 0.45, scale: 0.84, y: 8 }}
+                  key={`you-${displayYouScore}`}
+                  initial={{ opacity: 0.45, scale: 0.84, y: 10 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ duration: 0.28, ease: "easeOut" }}
+                  transition={{ duration: 0.32, ease: "easeOut" }}
                   className="font-sora text-2xl font-bold text-[var(--text-primary)]"
                 >
-                  {youScore}
+                  {displayYouScore}
                 </motion.p>
                 <AnimatePresence>
                   {revealed && roundBurst && roundBurst.userPoints > 0 ? (
@@ -2553,6 +2728,8 @@ export default function BattleArena() {
                 </AnimatePresence>
                 <div className="mt-1 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
                   <span>Streak x{youStreak}</span>
+                  <span className="text-[var(--text-muted)]">•</span>
+                  <span>{displayYouScore}/{Math.max(1, battleQuestions.length * 250)}</span>
                   <AnimatePresence>
                     {revealed && roundBurst && roundBurst.userPoints > 0 ? (
                       <motion.span
@@ -2566,18 +2743,25 @@ export default function BattleArena() {
                     ) : null}
                   </AnimatePresence>
                 </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/15">
+                  <motion.div
+                    animate={{ width: `${Math.min(100, (displayYouScore / Math.max(1, battleQuestions.length * 250)) * 100)}%` }}
+                    transition={{ type: "spring", stiffness: 180, damping: 24 }}
+                    className="h-full rounded-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-400"
+                  />
+                </div>
               </div>
 
               <div className="relative overflow-hidden rounded-[16px] border border-orange-400/25 bg-gradient-to-br from-orange-500/14 via-orange-500/8 to-transparent p-3 text-left sm:text-right">
                 <p className="text-xs uppercase tracking-[0.16em] text-[var(--text-muted)]">Opponent</p>
                 <motion.p
-                  key={`opp-${opponentScore}`}
-                  initial={{ opacity: 0.45, scale: 0.84, y: 8 }}
+                  key={`opp-${displayOpponentScore}`}
+                  initial={{ opacity: 0.45, scale: 0.84, y: 10 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ duration: 0.28, ease: "easeOut" }}
+                  transition={{ duration: 0.32, ease: "easeOut" }}
                   className="font-sora text-2xl font-bold text-[var(--text-primary)]"
                 >
-                  {opponentScore}
+                  {displayOpponentScore}
                 </motion.p>
                 <AnimatePresence>
                   {revealed && roundBurst && roundBurst.opponentPoints > 0 ? (
@@ -2594,6 +2778,8 @@ export default function BattleArena() {
                 </AnimatePresence>
                 <div className="mt-1 flex items-center gap-2 text-xs text-[var(--text-secondary)] sm:justify-end">
                   <span>Streak x{opponentStreak}</span>
+                  <span className="text-[var(--text-muted)]">•</span>
+                  <span>{displayOpponentScore}/{Math.max(1, battleQuestions.length * 250)}</span>
                   <AnimatePresence>
                     {revealed && roundBurst && roundBurst.opponentPoints > 0 ? (
                       <motion.span
@@ -2606,6 +2792,13 @@ export default function BattleArena() {
                       </motion.span>
                     ) : null}
                   </AnimatePresence>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/15">
+                  <motion.div
+                    animate={{ width: `${Math.min(100, (displayOpponentScore / Math.max(1, battleQuestions.length * 250)) * 100)}%` }}
+                    transition={{ type: "spring", stiffness: 180, damping: 24 }}
+                    className="ml-auto h-full rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-rose-400"
+                  />
                 </div>
               </div>
             </div>
@@ -3164,16 +3357,18 @@ export default function BattleArena() {
                 <button
                   type="button"
                   onClick={stayInBattle}
+                  disabled={isLeavingBattle}
                   className="focus-ring arcade-btn rounded-button border border-black/10 px-4 py-2 text-sm text-[var(--text-secondary)] dark:border-white/15 dark:text-white/80"
                 >
                   Stay
                 </button>
                 <button
                   type="button"
-                  onClick={confirmLeaveBattle}
+                  onClick={() => void confirmLeaveBattle()}
+                  disabled={isLeavingBattle}
                   className="focus-ring arcade-btn rounded-button border border-rose-400/45 bg-rose-500/16 px-4 py-2 text-sm font-semibold text-rose-100"
                 >
-                  Leave Battle
+                  {isLeavingBattle ? "Leaving..." : "Leave Battle"}
                 </button>
               </div>
             </motion.div>

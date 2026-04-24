@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -75,7 +75,12 @@ const ratingToRank = (rating: number) => {
 
 function ProfilePageContent() {
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<ProfileTab>("stats");
+  const initialTabParam = searchParams.get("tab");
+  const initialSectionParam = searchParams.get("section");
+  const initialActiveTab: ProfileTab = initialSectionParam === "trivia" || initialSectionParam === "battle"
+    ? "history"
+    : (initialTabParam === "stats" || initialTabParam === "history" || initialTabParam === "saved" ? initialTabParam : "stats");
+  const [activeTab, setActiveTab] = useState<ProfileTab>(initialActiveTab);
   const [isEditing, setIsEditing] = useState(false);
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const { displayName, handle, bio, tags, tier, setProfile } = useProfileStore();
@@ -92,26 +97,8 @@ function ProfilePageContent() {
   });
   const [selectedTags, setSelectedTags] = useState<string[]>(tags);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isTriviaHistoryExpanded, setIsTriviaHistoryExpanded] = useState(true);
-  const [isBattleHistoryExpanded, setIsBattleHistoryExpanded] = useState(true);
-
-  useEffect(() => {
-    const tab = searchParams.get("tab");
-    if (tab === "stats" || tab === "history" || tab === "saved") {
-      setActiveTab(tab);
-    }
-
-    const section = searchParams.get("section");
-    if (section === "trivia") {
-      setActiveTab("history");
-      setIsTriviaHistoryExpanded(true);
-      setIsBattleHistoryExpanded(false);
-    } else if (section === "battle") {
-      setActiveTab("history");
-      setIsTriviaHistoryExpanded(false);
-      setIsBattleHistoryExpanded(true);
-    }
-  }, [searchParams]);
+  const [isTriviaHistoryExpanded, setIsTriviaHistoryExpanded] = useState(initialSectionParam === "battle" ? false : true);
+  const [isBattleHistoryExpanded, setIsBattleHistoryExpanded] = useState(initialSectionParam === "trivia" ? false : true);
 
   const savedFacts = useMemo(() => {
     const staticFacts = triviaFacts.filter((fact) => savedFactIds.includes(fact.id));

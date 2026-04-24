@@ -7,14 +7,5 @@
 			"password": true
 		}
 	],
-	"servers": {
-		"my-mcp-server-ab7a78f4": {
-			"url": "https://mcp.vercel.com",
-			"type": "http"
-		},
-		"supabase": {
-			"type": "http",
-			"url": "https://mcp.supabase.com/mcp?project_ref=bjbclxypfwqduzhtgfhg"
-		}
-	}
+	"servers": {}
 }

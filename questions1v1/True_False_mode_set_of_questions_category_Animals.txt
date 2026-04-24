@@ -1,0 +1,110 @@
+ANIMALS – TRUE OR FALSE (10)
+1.	Elephants are the largest land animals. — True ✅ 
+2.	Dogs can fly naturally. — False ❌ 
+3.	Fish live in water. — True ✅ 
+4.	Cats bark. — False ❌ 
+5.	Birds have feathers. — True ✅ 
+6.	Snakes have legs. — False ❌ 
+7.	Lions are carnivores. — True ✅ 
+8.	Cows eat meat. — False ❌ 
+9.	Frogs can live on land and water. — True ✅ 
+10.	Penguins can fly. — False ❌ 
+________________________________________
+ANIMALS – TRUE OR FALSE (15)
+1.	Mammals give birth to live young. — True ✅ 
+2.	All animals have backbones. — False ❌ 
+3.	Reptiles are cold-blooded. — True ✅ 
+4.	Birds lay eggs. — True ✅ 
+5.	Sharks are mammals. — False ❌ 
+6.	Dolphins are mammals. — True ✅ 
+7.	Insects have six legs. — True ✅ 
+8.	Spiders have eight legs. — True ✅ 
+9.	Amphibians can live in water and on land. — True ✅ 
+10.	All animals are herbivores. — False ❌ 
+11.	Tigers are herbivores. — False ❌ 
+12.	Giraffes have long necks. — True ✅ 
+13.	Bats are birds. — False ❌ 
+14.	Whales breathe through gills. — False ❌ 
+15.	Owls are nocturnal. — True ✅ 
+________________________________________
+ANIMALS – TRUE OR FALSE (20)
+1.	Vertebrates have backbones. — True ✅ 
+2.	Invertebrates have no backbones. — True ✅ 
+3.	Fish breathe through gills. — True ✅ 
+4.	Birds have fur. — False ❌ 
+5.	Mammals produce milk. — True ✅ 
+6.	Reptiles have scales. — True ✅ 
+7.	Frogs are reptiles. — False ❌ 
+8.	Snakes are reptiles. — True ✅ 
+9.	Penguins are birds. — True ✅ 
+10.	Ostriches can fly. — False ❌ 
+11.	Cheetahs are the fastest land animals. — True ✅ 
+12.	Elephants are herbivores. — True ✅ 
+13.	Bears are omnivores. — True ✅ 
+14.	Wolves hunt in packs. — True ✅ 
+15.	Dolphins use echolocation. — True ✅ 
+16.	Bats can see perfectly in the dark without sound. — False ❌ 
+17.	Camels live in deserts. — True ✅ 
+18.	Polar bears live in cold regions. — True ✅ 
+19.	All animals live on land. — False ❌ 
+20.	Some animals can camouflage. — True ✅ 
+________________________________________
+ANIMALS – TRUE OR FALSE (25)
+1.	Herbivores eat plants. — True ✅ 
+2.	Carnivores eat meat. — True ✅ 
+3.	Omnivores eat both plants and animals. — True ✅ 
+4.	Predators hunt other animals. — True ✅ 
+5.	Prey hunts predators. — False ❌ 
+6.	Migration is animal movement. — True ✅ 
+7.	Hibernation is long sleep. — True ✅ 
+8.	Camouflage helps animals hide. — True ✅ 
+9.	Adaptation helps survival. — True ✅ 
+10.	Habitat is where animals live. — True ✅ 
+11.	Extinction means a species is gone. — True ✅ 
+12.	Domestic animals are wild. — False ❌ 
+13.	Wild animals live in nature. — True ✅ 
+14.	Livestock are farm animals. — True ✅ 
+15.	Pets are companion animals. — True ✅ 
+16.	Endangered species are at risk. — True ✅ 
+17.	Vertebrates include mammals. — True ✅ 
+18.	Invertebrates include insects. — True ✅ 
+19.	Amphibians include frogs. — True ✅ 
+20.	Reptiles include snakes. — True ✅ 
+21.	Mammals include humans. — True ✅ 
+22.	Birds have feathers. — True ✅ 
+23.	Fish live in water. — True ✅ 
+24.	Insects have eight legs. — False ❌ 
+25.	Arachnids have eight legs. — True ✅ 
+________________________________________
+ANIMALS – TRUE OR FALSE (30)
+1.	Zoology is the study of animals. — True ✅ 
+2.	Mammals are warm-blooded. — True ✅ 
+3.	Reptiles are warm-blooded. — False ❌ 
+4.	Birds are warm-blooded. — True ✅ 
+5.	Fish are cold-blooded. — True ✅ 
+6.	Amphibians start life in water. — True ✅ 
+7.	Carnivores only eat plants. — False ❌ 
+8.	Herbivores only eat plants. — True ✅ 
+9.	Omnivores eat both. — True ✅ 
+10.	Echolocation uses sound. — True ✅ 
+11.	Pack behavior involves groups. — True ✅ 
+12.	Territorial animals defend areas. — True ✅ 
+13.	Mating is for reproduction. — True ✅ 
+14.	Offspring are young animals. — True ✅ 
+15.	Nests are animal homes. — True ✅ 
+16.	Dens are shelters. — True ✅ 
+17.	Burrows are underground homes. — True ✅ 
+18.	Migration patterns are travel routes. — True ✅ 
+19.	Food chains show feeding order. — True ✅ 
+20.	Food webs are interconnected chains. — True ✅ 
+21.	Keystone species are important to ecosystems. — True ✅ 
+22.	Biodiversity means variety of life. — True ✅ 
+23.	Ecosystems include living and non-living things. — True ✅ 
+24.	Conservation protects animals. — True ✅ 
+25.	Poaching is illegal hunting. — True ✅ 
+26.	Wildlife reserves protect animals. — True ✅ 
+27.	Zoos keep animals for viewing and care. — True ✅ 
+28.	Aquariums house aquatic animals. — True ✅ 
+29.	Domestication means taming animals. — True ✅ 
+30.	Animals do not adapt to environments. — False ❌
+

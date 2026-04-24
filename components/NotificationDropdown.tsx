@@ -8,7 +8,6 @@ import { usePlayerStatsStore } from "@/lib/playerStatsStore";
 import { useBattleStatsStore } from "@/lib/battleStatsStore";
 import { useSettingsStore } from "@/lib/settingsStore";
 import {
-  ARCHIVED_NOTIFICATIONS_STORAGE_KEY,
   DISMISSED_NOTIFICATIONS_STORAGE_KEY,
   READ_NOTIFICATIONS_STORAGE_KEY,
   buildNotificationFeed,
@@ -32,10 +31,13 @@ const notificationIconMap: Record<NotificationFeedType, React.ReactNode> = {
 export default function NotificationDropdown() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const [readIds, setReadIds] = useState<Set<string>>(new Set());
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [readIds, setReadIds] = useState<Set<string>>(() =>
+    typeof window === "undefined" ? new Set() : readIdSetFromStorage(READ_NOTIFICATIONS_STORAGE_KEY)
+  );
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() =>
+    typeof window === "undefined" ? new Set() : readIdSetFromStorage(DISMISSED_NOTIFICATIONS_STORAGE_KEY)
+  );
   const [activeTab, setActiveTab] = useState<NotificationTab>("all");
-  const [hasHydratedStorage, setHasHydratedStorage] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const { quizHistory, bestStreak, totalPoints } = usePlayerStatsStore();
@@ -71,28 +73,18 @@ export default function NotificationDropdown() {
   const unreadCount = visibleNotifications.filter((n) => !readIds.has(n.id)).length;
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    setReadIds(readIdSetFromStorage(READ_NOTIFICATIONS_STORAGE_KEY));
-    setDismissedIds(readIdSetFromStorage(DISMISSED_NOTIFICATIONS_STORAGE_KEY));
-
-    setHasHydratedStorage(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hasHydratedStorage) return;
     mergeAndPersistNotificationArchive(notifications);
-  }, [hasHydratedStorage, notifications]);
+  }, [notifications]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !hasHydratedStorage) return;
+    if (typeof window === "undefined") return;
     writeIdSetToStorage(READ_NOTIFICATIONS_STORAGE_KEY, readIds);
-  }, [hasHydratedStorage, readIds]);
+  }, [readIds]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !hasHydratedStorage) return;
+    if (typeof window === "undefined") return;
     writeIdSetToStorage(DISMISSED_NOTIFICATIONS_STORAGE_KEY, dismissedIds);
-  }, [dismissedIds, hasHydratedStorage]);
+  }, [dismissedIds]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -156,7 +148,7 @@ export default function NotificationDropdown() {
         className="focus-ring arcade-btn relative rounded-full border border-black/10 p-2 text-[var(--text-secondary)] hover:border-violet-400 hover:text-violet-500 dark:border-white/10 dark:text-white/80 dark:hover:text-violet-200 transition-colors duration-150"
       >
         <Bell className="h-4 w-4" />
-        {hasHydratedStorage && unreadCount > 0 && (
+        {unreadCount > 0 && (
           <motion.span
             key={unreadCount}
             initial={{ scale: 0.8 }}
