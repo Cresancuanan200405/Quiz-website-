@@ -1,0 +1,510 @@
+TECH – 10 QUESTIONS
+1. What does CPU stand for?
+A. Central Process Unit
+B. Central Processing Unit ✅
+C. Computer Personal Unit
+D. Control Processing Unit 
+2.	What is the brain of the computer?
+A. RAM
+B. CPU ✅
+C. Hard Drive
+D. GPU 
+3.	What does RAM stand for?
+A. Read Access Memory
+B. Random Access Memory ✅
+C. Run Access Memory
+D. Rapid Access Memory 
+4.	Which device is used to input data?
+A. Monitor
+B. Keyboard ✅
+C. Speaker
+D. Printer 
+5.	What does USB stand for?
+A. Universal Serial Bus ✅
+B. Unified System Bus
+C. Universal System Base
+D. Unit Serial Base 
+6.	What is used to browse the internet?
+A. OS
+B. Browser ✅
+C. CPU
+D. Driver 
+7.	Which is an operating system?
+A. Microsoft Word
+B. Windows ✅
+C. Google
+D. Chrome 
+8.	What does HTML stand for?
+A. Hyper Trainer Marking Language
+B. Hyper Text Markup Language ✅
+C. High Text Machine Language
+D. Hyper Tool Multi Language 
+9.	What is used to store files permanently?
+A. RAM
+B. Cache
+C. Hard Drive ✅
+D. CPU 
+10.	Which is an example of software?
+A. Mouse
+B. Keyboard
+C. Monitor
+D. Microsoft Excel ✅ 
+________________________________________
+TECH – 15 QUESTIONS
+1.	What does GPU stand for?
+A. General Processing Unit
+B. Graphics Processing Unit ✅
+C. Global Processing Unit
+D. Graphic Power Unit 
+2.	What is the internet?
+A. Hardware
+B. Network of networks ✅
+C. Software
+D. Device 
+3.	What does Wi-Fi stand for?
+A. Wireless Fidelity ✅
+B. Wide Frequency
+C. Wired Fiber
+D. Wireless File 
+4.	What is a virus in computers?
+A. Hardware
+B. Malware ✅
+C. Software tool
+D. Program 
+5.	What is an IP address?
+A. Website
+B. Unique identifier ✅
+C. Password
+D. Software 
+6.	What does URL stand for?
+A. Universal Resource Locator
+B. Uniform Resource Locator ✅
+C. Unique Resource Link
+D. Universal Reference Link 
+7.	What is a browser?
+A. Hardware
+B. Software ✅
+C. Network
+D. File 
+8.	Which is a search engine?
+A. Chrome
+B. Google ✅
+C. Windows
+D. Linux 
+9.	What does OS stand for?
+A. Open Software
+B. Operating System ✅
+C. Output System
+D. Online Service 
+10.	What is cloud storage?
+A. Physical storage
+B. Online storage ✅
+C. USB storage
+D. Local storage 
+11.	What is a keyboard?
+A. Output
+B. Input device ✅
+C. Storage
+D. Processor 
+12.	What does LAN stand for?
+A. Local Area Network ✅
+B. Large Area Network
+C. Long Area Network
+D. Link Area Network 
+13.	What is software?
+A. Physical parts
+B. Programs ✅
+C. Network
+D. Device 
+14.	What is hardware?
+A. Programs
+B. Physical parts ✅
+C. Internet
+D. Files 
+15.	What is email?
+A. Software
+B. Electronic mail ✅
+C. Hardware
+D. Network 
+________________________________________
+TECH – 20 QUESTIONS
+1.	What does ROM stand for?
+A. Read Only Memory ✅
+B. Random Only Memory
+C. Run Only Memory
+D. Rapid Only Memory 
+2.	What is a firewall?
+A. Security system ✅
+B. Virus
+C. Hardware
+D. Network 
+3.	What is a modem?
+A. Storage
+B. Connects internet ✅
+C. Input
+D. Output 
+4.	What is Bluetooth?
+A. Cable
+B. Wireless technology ✅
+C. Software
+D. Hardware 
+5.	What is coding?
+A. Writing programs ✅
+B. Drawing
+C. Gaming
+D. Browsing 
+6.	What is an app?
+A. Hardware
+B. Application software ✅
+C. Network
+D. File 
+7.	What is a database?
+A. Storage system ✅
+B. Software
+C. Hardware
+D. Network 
+8.	What is a password?
+A. ID
+B. Security key ✅
+C. File
+D. Device 
+9.	What is a hacker?
+A. Programmer
+B. Unauthorized user ✅
+C. Teacher
+D. Gamer 
+10.	What is phishing?
+A. Fishing
+B. Scam attack ✅
+C. Program
+D. Hardware 
+11.	What is antivirus?
+A. Virus
+B. Protection software ✅
+C. Hardware
+D. Game 
+12.	What is a server?
+A. Computer providing services ✅
+B. Storage
+C. Input
+D. Output 
+13.	What is a client?
+A. Server
+B. User computer ✅
+C. Network
+D. Device 
+14.	What is a file?
+A. Data unit ✅
+B. Hardware
+C. Network
+D. Device 
+15.	What is storage?
+A. Data saving ✅
+B. Processing
+C. Input
+D. Output 
+16.	What is AI?
+A. Artificial Intelligence ✅
+B. Automatic Input
+C. Advanced Internet
+D. Applied Interface 
+17.	What is machine learning?
+A. AI method ✅
+B. Hardware
+C. Network
+D. Game 
+18.	What is a bug?
+A. Error in code ✅
+B. Virus
+C. Hardware
+D. Device 
+19.	What is debugging?
+A. Fixing errors ✅
+B. Coding
+C. Running
+D. Saving 
+20.	What is encryption?
+A. Coding data securely ✅
+B. Deleting
+C. Copying
+D. Sending 
+________________________________________
+TECH – 25 QUESTIONS
+1.	What is a motherboard?
+A. Main circuit board ✅
+B. Storage
+C. Software
+D. Device 
+2.	What is RAM used for?
+A. Temporary storage ✅
+B. Permanent
+C. Processing
+D. Input 
+3.	What is a GPU used for?
+A. Graphics ✅
+B. Storage
+C. Input
+D. Output 
+4.	What is a browser example?
+A. Chrome ✅
+B. Windows
+C. Excel
+D. Linux 
+5.	What is an algorithm?
+A. Step-by-step process ✅
+B. Device
+C. Network
+D. File 
+6.	What is open-source software?
+A. Free code access ✅
+B. Paid
+C. Hardware
+D. Network 
+7.	What is a URL?
+A. Website address ✅
+B. File
+C. Hardware
+D. Device 
+8.	What is HTTP?
+A. Protocol ✅
+B. Hardware
+C. Storage
+D. File 
+9.	What is a domain name?
+A. Website name ✅
+B. IP
+C. File
+D. Device 
+10.	What is a backup?
+A. Copy data ✅
+B. Delete
+C. Send
+D. Run 
+11.	What is cybersecurity?
+A. Protection online ✅
+B. Game
+C. Software
+D. Hardware 
+12.	What is a network?
+A. Connected devices ✅
+B. Storage
+C. File
+D. Device 
+13.	What is a router?
+A. Directs traffic ✅
+B. Storage
+C. Input
+D. Output 
+14.	What is spam?
+A. Junk email ✅
+B. Virus
+C. File
+D. Program 
+15.	What is a cookie?
+A. Data file ✅
+B. Hardware
+C. Network
+D. Device 
+16.	What is a download?
+A. Receive data ✅
+B. Send
+C. Delete
+D. Copy 
+17.	What is an upload?
+A. Send data ✅
+B. Receive
+C. Delete
+D. Copy 
+18.	What is a pixel?
+A. Image unit ✅
+B. File
+C. Device
+D. Code 
+19.	What is VR?
+A. Virtual Reality ✅
+B. Video Run
+C. Visual Range
+D. Voice Response 
+20.	What is AR?
+A. Augmented Reality ✅
+B. Audio Run
+C. Auto Response
+D. Artificial Range 
+21.	What is blockchain?
+A. Digital ledger ✅
+B. File
+C. Device
+D. Program 
+22.	What is cryptocurrency?
+A. Digital money ✅
+B. Cash
+C. Hardware
+D. File 
+23.	What is IoT?
+A. Internet of Things ✅
+B. Input Output Tech
+C. Internal Online Tool
+D. Internet Online Tech 
+24.	What is big data?
+A. Large datasets ✅
+B. File
+C. Device
+D. Network 
+25.	What is cloud computing?
+A. Online computing ✅
+B. Hardware
+C. Storage
+D. Device 
+________________________________________
+TECH – 30 QUESTIONS
+(final set)
+1.	What is a compiler?
+A. Converts code ✅
+B. Hardware
+C. Network
+D. File 
+2.	What is an operating system?
+A. Manages hardware/software ✅
+B. Device
+C. File
+D. Network 
+3.	What is Linux?
+A. OS ✅
+B. Hardware
+C. File
+D. Network 
+4.	What is Windows?
+A. OS ✅
+B. Device
+C. File
+D. Network 
+5.	What is macOS?
+A. OS ✅
+B. Hardware
+C. File
+D. Network 
+6.	What is a shortcut?
+A. Quick access ✅
+B. File
+C. Device
+D. Network 
+7.	What is multitasking?
+A. Multiple tasks ✅
+B. Single task
+C. File
+D. Device 
+8.	What is a tab?
+A. Browser section ✅
+B. File
+C. Device
+D. Network 
+9.	What is streaming?
+A. Online media play ✅
+B. File
+C. Device
+D. Network 
+10.	What is resolution?
+A. Image quality ✅
+B. File
+C. Device
+D. Network 
+11.	What is a frame rate?
+A. Speed of frames ✅
+B. File
+C. Device
+D. Network 
+12.	What is bandwidth?
+A. Data capacity ✅
+B. File
+C. Device
+D. Network 
+13.	What is latency?
+A. Delay ✅
+B. Speed
+C. File
+D. Device 
+14.	What is DNS?
+A. Domain Name System ✅
+B. Device
+C. File
+D. Network 
+15.	What is SaaS?
+A. Software as a Service ✅
+B. Device
+C. File
+D. Network 
+16.	What is PaaS?
+A. Platform as a Service ✅
+B. Device
+C. File
+D. Network 
+17.	What is IaaS?
+A. Infrastructure as a Service ✅
+B. Device
+C. File
+D. Network 
+18.	What is virtualization?
+A. Virtual systems ✅
+B. Hardware
+C. File
+D. Network 
+19.	What is a hypervisor?
+A. Virtual manager ✅
+B. Device
+C. File
+D. Network 
+20.	What is edge computing?
+A. Local processing ✅
+B. Cloud
+C. File
+D. Device 
+21.	What is data mining?
+A. Extract data ✅
+B. File
+C. Device
+D. Network 
+22.	What is deep learning?
+A. AI method ✅
+B. Hardware
+C. File
+D. Network 
+23.	What is NLP?
+A. Language processing ✅
+B. Device
+C. File
+D. Network 
+24.	What is robotics?
+A. Robot tech ✅
+B. File
+C. Device
+D. Network 
+25.	What is automation?
+A. Self-operating ✅
+B. File
+C. Device
+D. Network 
+26.	What is API?
+A. Interface ✅
+B. File
+C. Device
+D. Network 
+27.	What is a framework?
+A. Structure for code ✅
+B. Device
+C. File
+D. Network 
+28.	What is Git?
+A. Version control ✅
+B. File
+C. Device
+D. Network 
+29.	What is GitHub?
+A. Code hosting ✅
+B. File
+C. Device
+D. Network 
+30.	What is DevOps?
+A. Dev + operations ✅
+B. File
+C. Device
+D. Network

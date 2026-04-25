@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "generate:classic": "node scripts/generateClassicQuestionBank.js",
+    "generate:rapidfire": "node scripts/generateRapidFireQuestionBank.mjs",
     "generate:truefalse": "node scripts/generateTrueFalseQuestionBank.mjs"
   },
   "dependencies": {

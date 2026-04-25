@@ -16,6 +16,8 @@ const difficultyBySection = {
   30: 'Hard',
 };
 
+const sectionTitleRegex = /^(.+?)\s*[\-\u2012\u2013\u2014\u2015]\s*(\d+)\s+QUESTIONS$/i;
+
 const categoryOrder = ['Science', 'History', 'Tech', 'Nature', 'Arts', 'Anime', 'Food', 'Animals', 'Business'];
 const categoryLabelMap = new Map(categoryOrder.map((category) => [category.toLowerCase(), category]));
 const questionEntries = [];
@@ -29,11 +31,16 @@ const toCategoryName = (raw) => {
 for (const file of files) {
   const fullPath = path.join(questionDir, file);
   const raw = fs.readFileSync(fullPath, 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+  if (!raw.trim()) {
+    console.warn(`Skipping empty file: ${file}`);
+    continue;
+  }
   const lines = raw.split('\n').map((line) => line.replace(/\t/g, '    ').trimEnd());
-  const titleMatch = lines[0]?.match(/^([A-Z][A-Z ]+?)\s*[–-]\s*(\d+)\s+QUESTIONS/i);
+  const titleMatch = lines[0]?.trim().match(sectionTitleRegex);
 
   if (!titleMatch) {
-    throw new Error(`Unable to parse title from ${file}`);
+    console.warn(`Skipping file with unrecognized title format: ${file}`);
+    continue;
   }
 
   const category = toCategoryName(titleMatch[1]);
@@ -74,7 +81,7 @@ for (const file of files) {
   for (let lineIndex = 1; lineIndex < lines.length; lineIndex += 1) {
     const line = lines[lineIndex].trim();
     if (!line || /^_+$/.test(line)) continue;
-    if (/^[A-Z][A-Z ]+\s*[–-]\s*\d+\s+QUESTIONS/i.test(line)) {
+    if (sectionTitleRegex.test(line)) {
       flushQuestion();
       continue;
     }

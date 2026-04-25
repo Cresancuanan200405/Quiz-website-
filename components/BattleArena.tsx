@@ -7,6 +7,8 @@ import CategoryCard from "@/components/CategoryCard";
 import ProfilePhoto from "@/components/ProfilePhoto";
 import Timer from "@/components/Timer";
 import { categoryMeta, questions } from "@/lib/mockData";
+import { classicQuestions } from "@/lib/classicQuestionBank";
+import { getRapidFireBankQuestions } from "@/lib/rapidFireQuestionBank";
 import { getTrueFalseBankQuestions } from "@/lib/trueFalseQuestionBank";
 import type { BattleState, Question } from "@/lib/types";
 import AnswerButton from "@/components/AnswerButton";
@@ -480,7 +482,23 @@ const buildLocalBattleQuestions = (categoryName: string, modeId: BattleModeId, a
     }
   }
 
-  const categoryPool = questions.filter((question) => question.category === selectedCategory.name);
+  if (modeId === "rapid-fire") {
+    const rapidFireQuestions = getRapidFireBankQuestions(selectedCategory.name, amount);
+    if (rapidFireQuestions.length >= amount) {
+      return {
+        questions: rapidFireQuestions.slice(0, amount).map((question) => ({
+          question: question.question,
+          options: [...question.options],
+          correctAnswer: question.correctAnswer,
+        })),
+        resolvedCategoryName: selectedCategory.name,
+      };
+    }
+  }
+
+  const bankCategoryPool = classicQuestions.filter((question) => question.category === selectedCategory.name);
+  const fallbackCategoryPool = questions.filter((question) => question.category === selectedCategory.name);
+  const categoryPool = bankCategoryPool.length > 0 ? bankCategoryPool : fallbackCategoryPool;
   const easyCategoryPool = categoryPool.filter((item) => item.difficulty === "Easy");
   const simpleEasyCategoryPool = easyCategoryPool.filter((item) => isSimpleQuestionText(item.question));
   const picked = takeUniqueItems(
