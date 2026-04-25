@@ -8,6 +8,7 @@ import ProfilePhoto from "@/components/ProfilePhoto";
 import Timer from "@/components/Timer";
 import { categoryMeta, questions } from "@/lib/mockData";
 import { classicQuestions } from "@/lib/classicQuestionBank";
+import { getGuessWordBankQuestions } from "@/lib/guessWordQuestionBank";
 import { getRapidFireBankQuestions } from "@/lib/rapidFireQuestionBank";
 import { getTrueFalseBankQuestions } from "@/lib/trueFalseQuestionBank";
 import type { BattleState, Question } from "@/lib/types";
@@ -488,6 +489,20 @@ const buildLocalBattleQuestions = (categoryName: string, modeId: BattleModeId, a
       return {
         questions: rapidFireQuestions.slice(0, amount).map((question) => ({
           question: question.question,
+          options: [...question.options],
+          correctAnswer: question.correctAnswer,
+        })),
+        resolvedCategoryName: selectedCategory.name,
+      };
+    }
+  }
+
+  if (modeId === "guess-word") {
+    const guessWordQuestions = getGuessWordBankQuestions(selectedCategory.name, amount);
+    if (guessWordQuestions.length >= amount) {
+      return {
+        questions: guessWordQuestions.slice(0, amount).map((question) => ({
+          question: `Guess the Word: ${question.question}`,
           options: [...question.options],
           correctAnswer: question.correctAnswer,
         })),

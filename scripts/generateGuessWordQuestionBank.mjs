@@ -5,7 +5,7 @@ const root = process.cwd();
 const questionDir = path.join(root, "questions1v1");
 const files = fs
   .readdirSync(questionDir)
-  .filter((file) => /^Rapid_Fire_mode_set_of_questions_category_.*\.txt$/i.test(file))
+  .filter((file) => /^Guess_The_Word_mode_set_of_questions_category_.*\.txt$/i.test(file))
   .sort((a, b) => a.localeCompare(b));
 
 const difficultyBySection = {
@@ -18,11 +18,10 @@ const difficultyBySection = {
 
 const categoryOrder = ["Science", "History", "Tech", "Nature", "Arts", "Anime", "Food", "Animals", "Business"];
 const categoryLabelMap = new Map(categoryOrder.map((category) => [category.toLowerCase(), category]));
-const countsByCategory = new Map();
 const countsByKey = new Map();
 const questionEntries = [];
 
-const sectionTitleRegex = /^(.+?)\s*[\-\u2012\u2013\u2014\u2015]\s*RAPID\s*FIRE\s*\((?:MCQ\s*)?(\d+)\s+QUESTIONS\)\s*$/i;
+const sectionTitleRegex = /^(.+?)\s*[\-\u2012\u2013\u2014\u2015]\s*GUESS\s*THE\s*WORD\s*\((\d+)\s+QUESTIONS\)?/i;
 
 const toCategoryName = (raw) => {
   const trimmed = raw.trim().toLowerCase().replace(/\s+/g, " ");
@@ -44,14 +43,11 @@ for (const file of files) {
   const flushQuestion = () => {
     if (!currentQuestion || !currentCategory || !currentSectionSize || !currentDifficulty) return;
 
-    const { prompt, options, correctAnswer, questionNumber } = currentQuestion;
+    const { prompt, options, correctAnswer } = currentQuestion;
     if (!prompt || options.length !== 4 || !correctAnswer) {
       currentQuestion = null;
       return;
     }
-
-    const categoryCount = (countsByCategory.get(currentCategory) || 0) + 1;
-    countsByCategory.set(currentCategory, categoryCount);
 
     const sectionKey = `${currentCategory}::${currentSectionSize}`;
     const sectionCount = (countsByKey.get(sectionKey) || 0) + 1;
@@ -63,7 +59,6 @@ for (const file of files) {
       difficulty: currentDifficulty,
       sectionSize: currentSectionSize,
       sectionIndex: sectionCount,
-      sourceQuestionNumber: questionNumber,
       question: prompt,
       options,
       correctAnswer,
@@ -102,7 +97,6 @@ for (const file of files) {
     if (questionMatch) {
       flushQuestion();
       currentQuestion = {
-        questionNumber: Number(questionMatch[1]),
         prompt: questionMatch[2].trim(),
         options: [],
         correctAnswer: "",
@@ -130,16 +124,15 @@ const orderedEntries = questionEntries.sort((a, b) => {
   const categoryCompare = categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category);
   if (categoryCompare !== 0) return categoryCompare;
   if (a.sectionSize !== b.sectionSize) return a.sectionSize - b.sectionSize;
-  if (a.sectionIndex !== b.sectionIndex) return a.sectionIndex - b.sectionIndex;
-  return a.sourceQuestionNumber - b.sourceQuestionNumber;
+  return a.sectionIndex - b.sectionIndex;
 });
 
 const out = [];
 out.push('import type { Difficulty, Question, QuizCategory } from "@/lib/types";');
 out.push("");
-out.push("export type RapidFireQuestionCount = 10 | 15 | 20 | 25 | 30;");
+out.push("export type GuessWordQuestionCount = 10 | 15 | 20 | 25 | 30;");
 out.push("");
-out.push("const rapidFireQuestionsList: Question[] = [");
+out.push("const guessWordQuestionsList: Question[] = [");
 
 for (const entry of orderedEntries) {
   out.push("  {");
@@ -154,28 +147,27 @@ for (const entry of orderedEntries) {
 }
 
 out.push("];\n");
-out.push("export const rapidFireQuestions = rapidFireQuestionsList;\n");
-out.push("export const rapidFireQuestionsByCategory: Record<QuizCategory, Question[]> = {");
+out.push("export const guessWordQuestions = guessWordQuestionsList;\n");
+out.push("export const guessWordQuestionsByCategory: Record<QuizCategory, Question[]> = {");
 for (const category of categoryOrder) {
-  out.push(`  ${category}: rapidFireQuestions.filter((question) => question.category === ${JSON.stringify(category)}),`);
+  out.push(`  ${category}: guessWordQuestions.filter((question) => question.category === ${JSON.stringify(category)}),`);
 }
 out.push("};\n");
-out.push("export const rapidFireQuestionSectionsByCount: Record<number, Difficulty> = {");
+out.push("export const guessWordQuestionSectionsByCount: Record<number, Difficulty> = {");
 out.push('  10: "Easy",');
 out.push('  15: "Medium",');
 out.push('  20: "Medium",');
 out.push('  25: "Hard",');
 out.push('  30: "Hard",');
 out.push("};\n");
-out.push("export const getRapidFireBankQuestions = (category: string, count: number): Question[] => {");
-out.push("  const categoryQuestions = rapidFireQuestionsByCategory[category as QuizCategory] ?? [];");
-out.push("  const expectedDifficulty = rapidFireQuestionSectionsByCount[count] ?? null;");
+out.push("export const getGuessWordBankQuestions = (category: string, count: number): Question[] => {");
+out.push("  const categoryQuestions = guessWordQuestionsByCategory[category as QuizCategory] ?? [];\n  const expectedDifficulty = guessWordQuestionSectionsByCount[count] ?? null;");
 out.push("  if (!expectedDifficulty) return categoryQuestions.slice(0, count);");
 out.push("  const sectionQuestions = categoryQuestions.filter((question) => question.difficulty === expectedDifficulty);");
 out.push("  if (sectionQuestions.length >= count) return sectionQuestions.slice(0, count);");
 out.push("  return categoryQuestions.slice(0, count);");
 out.push("};");
 
-const outputPath = path.join(root, "lib", "rapidFireQuestionBank.ts");
+const outputPath = path.join(root, "lib", "guessWordQuestionBank.ts");
 fs.writeFileSync(outputPath, `${out.join("\n")}\n`, "utf8");
 console.log(`Wrote ${outputPath} with ${orderedEntries.length} questions.`);

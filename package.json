@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "generate:classic": "node scripts/generateClassicQuestionBank.js",
+    "generate:guessword": "node scripts/generateGuessWordQuestionBank.mjs",
     "generate:rapidfire": "node scripts/generateRapidFireQuestionBank.mjs",
     "generate:truefalse": "node scripts/generateTrueFalseQuestionBank.mjs"
   },

@@ -5412,6 +5412,7 @@ export const rapidFireQuestionsByCategory: Record<QuizCategory, Question[]> = {
   History: rapidFireQuestions.filter((question) => question.category === "History"),
   Tech: rapidFireQuestions.filter((question) => question.category === "Tech"),
   Nature: rapidFireQuestions.filter((question) => question.category === "Nature"),
+  Arts: rapidFireQuestions.filter((question) => question.category === "Arts"),
   Anime: rapidFireQuestions.filter((question) => question.category === "Anime"),
   Food: rapidFireQuestions.filter((question) => question.category === "Food"),
   Animals: rapidFireQuestions.filter((question) => question.category === "Animals"),
