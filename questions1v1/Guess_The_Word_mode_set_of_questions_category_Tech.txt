@@ -1,110 +1,509 @@
-TECH – TRUE OR FALSE (10)
-1.	Computers process data using binary. — True ✅ 
-2.	The internet was invented in 2020. — False ❌ 
-3.	A smartphone is a type of computer. — True ✅ 
-4.	Wi-Fi uses cables to connect devices. — False ❌ 
-5.	Software refers to physical parts of a computer. — False ❌ 
-6.	Hardware refers to physical components. — True ✅ 
-7.	Google is a search engine. — True ✅ 
-8.	HTML is a programming language. — False ❌ 
-9.	RAM stores data permanently. — False ❌ 
-10.	A CPU is the brain of the computer. — True ✅ 
+TECH - GUESS THE WORD (10 QUESTIONS)
+1.	This device is used to type letters and numbers.
+A. Mouse
+B. Keyboard ✅
+C. Speaker
+D. Monitor
+2.	A portable computer used for work or study on the go.
+A. Desktop
+B. Laptop ✅
+C. Router
+D. Server
+3.	The part of a computer that shows visual output.
+A. CPU
+B. Monitor ✅
+C. RAM
+D. Keyboard
+4.	The main processor often called the brain of the computer.
+A. SSD
+B. CPU ✅
+C. GPU
+D. Cache
+5.	A pointing device used to move the cursor.
+A. Scanner
+B. Mouse ✅
+C. Printer
+D. Modem
+6.	Software like Chrome and Firefox belongs to this category.
+A. Database
+B. Browser ✅
+C. Compiler
+D. Driver
+7.	A worldwide network of connected computers.
+A. LAN
+B. Internet ✅
+C. Bluetooth
+D. USB
+8.	Temporary memory used while programs are running.
+A. HDD
+B. RAM ✅
+C. ROM
+D. DVD
+9.	Malicious software designed to damage or steal data.
+A. Patch
+B. Malware ✅
+C. Update
+D. Backup
+10.	A device that produces paper copies of files.
+A. Speaker
+B. Printer ✅
+C. Microphone
+D. Webcam
 ________________________________________
-TECH – TRUE OR FALSE (15)
-1.	Python is a programming language. — True ✅ 
-2.	Microsoft Word is a video game. — False ❌ 
-3.	Cybersecurity protects systems from attacks. — True ✅ 
-4.	Bluetooth works over short distances. — True ✅ 
-5.	Artificial Intelligence can learn patterns. — True ✅ 
-6.	A mouse is an input device. — True ✅ 
-7.	A monitor is an input device. — False ❌ 
-8.	Data can be stored in the cloud. — True ✅ 
-9.	Email was invented before computers. — False ❌ 
-10.	Operating systems manage computer hardware. — True ✅ 
-11.	Linux is an operating system. — True ✅ 
-12.	Smartphones cannot connect to the internet. — False ❌ 
-13.	USB stands for Universal Serial Bus. — True ✅ 
-14.	A keyboard is used for typing input. — True ✅ 
-15.	A printer is an output device. — True ✅ 
+TECH - GUESS THE WORD (15 QUESTIONS)
+1.	Storage that keeps files even when power is off.
+A. RAM
+B. Hard Drive ✅
+C. Cache
+D. Register
+2.	A mobile device used for calls, apps, and browsing.
+A. Router
+B. Smartphone ✅
+C. Server
+D. Switch
+3.	Core software that manages hardware and applications.
+A. Browser
+B. Operating System ✅
+C. Spreadsheet
+D. Antivirus
+4.	The visual arrangement and style of a website's pages.
+A. Syntax
+B. Layout ✅
+C. Protocol
+D. Firmware
+5.	A machine that hosts websites and serves them online.
+A. Monitor
+B. Server ✅
+C. Scanner
+D. Mouse
+6.	A structured system for storing and retrieving records.
+A. Browser
+B. Database ✅
+C. Plugin
+D. Widget
+7.	A networking device that directs data packets between networks.
+A. Keyboard
+B. Router ✅
+C. SSD
+D. GPU
+8.	Device that connects your network to an internet service line.
+A. Switch
+B. Modem ✅
+C. Hub
+D. Dock
+9.	Software used to write and edit source code.
+A. Media Player
+B. Text Editor ✅
+C. Browser
+D. Printer Driver
+10.	Step-by-step instructions written for a computer.
+A. Code ✅
+B. Cache
+C. Cookie
+D. Pixel
+11.	A set of related pages under one web address.
+A. URL
+B. Website ✅
+C. API
+D. Query
+12.	The full address used to open a page online.
+A. USB
+B. URL ✅
+C. BIOS
+D. LAN
+13.	System that maps domain names to IP addresses.
+A. FTP
+B. DNS ✅
+C. CLI
+D. GUI
+14.	Small data saved by websites in your browser.
+A. Cookie ✅
+B. Driver
+C. Patch
+D. Script
+15.	Wireless networking technology for local internet access.
+A. VGA
+B. Wi-Fi ✅
+C. HDMI
+D. SATA
 ________________________________________
-TECH – TRUE OR FALSE (20)
-1.	The first computer was very small. — False ❌ 
-2.	Supercomputers are very powerful. — True ✅ 
-3.	Cloud storage requires internet. — True ✅ 
-4.	Antivirus software protects computers. — True ✅ 
-5.	A firewall blocks unwanted access. — True ✅ 
-6.	HTML is used for creating websites. — True ✅ 
-7.	CSS is used for styling websites. — True ✅ 
-8.	JavaScript makes websites interactive. — True ✅ 
-9.	A database stores information. — True ✅ 
-10.	A router connects networks. — True ✅ 
-11.	A modem connects to the internet. — True ✅ 
-12.	AI means Artificial Intelligence. — True ✅ 
-13.	Robots always look like humans. — False ❌ 
-14.	Machines can replace all human jobs. — False ❌ 
-15.	The internet is a global network. — True ✅ 
-16.	Social media is a form of technology. — True ✅ 
-17.	Gaming consoles are computers. — True ✅ 
-18.	Laptops are portable computers. — True ✅ 
-19.	Tablets are larger than laptops. — False ❌ 
-20.	Technology only includes computers. — False ❌ 
+TECH - GUESS THE WORD (20 QUESTIONS)
+1.	Computer that provides services or resources to other computers.
+A. Client
+B. Server ✅
+C. Router
+D. Printer
+2.	Network covering a limited area like a home or office.
+A. WAN
+B. LAN ✅
+C. MAN
+D. VPN
+3.	Network that spans large geographic areas.
+A. LAN
+B. WAN ✅
+C. PAN
+D. SAN
+4.	Storing files on internet-based remote infrastructure.
+A. Local Disk
+B. Cloud Storage ✅
+C. RAM Cache
+D. DVD
+5.	Program used to detect and block computer viruses.
+A. Browser
+B. Antivirus ✅
+C. Compiler
+D. Emulator
+6.	A self-replicating type of malicious program.
+A. Driver
+B. Virus ✅
+C. Theme
+D. Add-on
+7.	Input device that captures images or paper documents.
+A. Monitor
+B. Scanner ✅
+C. Projector
+D. Speaker
+8.	Fast storage with no moving mechanical parts.
+A. HDD
+B. SSD ✅
+C. RAM
+D. Tape
+9.	Small portable storage stick that connects via USB.
+A. Blu-ray
+B. USB Flash Drive ✅
+C. GPU
+D. Motherboard
+10.	Process of converting domain names into IP addresses.
+A. Routing
+B. DNS Resolution ✅
+C. Defragmentation
+D. Compression
+11.	Markup language used to structure web pages.
+A. Python
+B. HTML ✅
+C. SQL
+D. Bash
+12.	Style language used to design page appearance.
+A. Java
+B. CSS ✅
+C. C
+D. PHP
+13.	Language commonly used for browser interactivity.
+A. JavaScript ✅
+B. XML
+C. YAML
+D. JSON
+14.	Software system used to manage databases.
+A. DBMS ✅
+B. BIOS
+C. DNS
+D. SDK
+15.	A visual user interface with windows and icons.
+A. CLI
+B. GUI ✅
+C. API
+D. URI
+16.	A text-based command interface.
+A. GUI
+B. CLI ✅
+C. IDE
+D. CDN
+17.	Popular version control system for tracking code changes.
+A. Git ✅
+B. FTP
+C. HTML
+D. SMTP
+18.	Code hosting platform commonly used with Git.
+A. GitHub ✅
+B. Dropbox
+C. Outlook
+D. Reddit
+19.	Software layer that creates and runs virtual machines.
+A. Browser
+B. Hypervisor ✅
+C. Antivirus
+D. Codec
+20.	Short-range wireless technology for nearby devices.
+A. NFC
+B. Bluetooth ✅
+C. WAN
+D. Ethernet
 ________________________________________
-TECH – TRUE OR FALSE (25)
-1.	Machine learning is part of AI. — True ✅ 
-2.	Deep learning uses neural networks. — True ✅ 
-3.	Big data refers to large datasets. — True ✅ 
-4.	Encryption protects data. — True ✅ 
-5.	Hackers always do illegal activities. — False ❌ 
-6.	Open-source software is free to modify. — True ✅ 
-7.	Android is an operating system. — True ✅ 
-8.	iOS is used in Apple devices. — True ✅ 
-9.	Smartphones use apps. — True ✅ 
-10.	Apps are software programs. — True ✅ 
-11.	HTML builds structure of websites. — True ✅ 
-12.	CSS adds style to websites. — True ✅ 
-13.	Java is only used for coffee. — False ❌ 
-14.	Cloud computing stores data online. — True ✅ 
-15.	Cybercrime involves illegal online activity. — True ✅ 
-16.	VPN hides user location. — True ✅ 
-17.	Blockchain is used in cryptocurrency. — True ✅ 
-18.	Bitcoin is a type of technology. — True ❌ (it is a cryptocurrency, not general tech concept) 
-19.	Servers store and deliver data. — True ✅ 
-20.	Websites run on servers. — True ✅ 
-21.	URLs are web addresses. — True ✅ 
-22.	HTTP is used for websites. — True ✅ 
-23.	HTTPS is more secure than HTTP. — True ✅ 
-24.	Cookies store browsing data. — True ✅ 
-25.	Browsers are used to access the internet. — True ✅ 
+TECH - GUESS THE WORD (25 QUESTIONS)
+1.	Secure version of HTTP used by most websites today.
+A. FTP
+B. HTTPS ✅
+C. SMTP
+D. POP3
+2.	Protocol used to request and deliver web pages.
+A. SSH
+B. HTTP ✅
+C. IMAP
+D. DNS
+3.	Protocol commonly used to send email messages.
+A. FTP
+B. SMTP ✅
+C. HTTP
+D. SNMP
+4.	Protocol used for transferring files between systems.
+A. DNS
+B. FTP ✅
+C. DHCP
+D. TLS
+5.	Numerical label identifying a device on a network.
+A. Domain
+B. IP Address ✅
+C. URL
+D. Cookie
+6.	Unique hardware-level identifier for a network interface.
+A. API Key
+B. MAC Address ✅
+C. Hostname
+D. Session ID
+7.	Component that performs graphics rendering tasks.
+A. PSU
+B. GPU ✅
+C. NIC
+D. HDD
+8.	Main circuit board connecting components in a computer.
+A. Router
+B. Motherboard ✅
+C. Modem
+D. Adapter
+9.	Firmware that starts hardware during boot.
+A. BIOS ✅
+B. CSS
+C. DNS
+D. SQL
+10.	Process of turning readable data into coded form.
+A. Compression
+B. Encryption ✅
+C. Rendering
+D. Streaming
+11.	Verification step proving a user's identity.
+A. Authentication ✅
+B. Caching
+C. Indexing
+D. Parsing
+12.	Permissions that define what a user can access.
+A. Rendering
+B. Authorization ✅
+C. Pagination
+D. Mirroring
+13.	A backup copy used to restore lost or damaged files.
+A. Snapshot ✅
+B. Query
+C. Token
+D. Hook
+14.	Automated set of steps that builds and tests code.
+A. Pipeline ✅
+B. Spreadsheet
+C. Sandbox
+D. Browser
+15.	Environment used by developers to write and debug code.
+A. IDE ✅
+B. CDN
+C. Proxy
+D. Firewall Rule
+16.	A collection of commands for interacting with a program.
+A. Theme
+B. API ✅
+C. Widget
+D. Pixel
+17.	Reusable package of code for specific features.
+A. Library ✅
+B. Monitor
+C. Cursor
+D. Bandwidth
+18.	Framework that provides structure for app development.
+A. Framework ✅
+B. Firmware
+C. Hardware
+D. Headset
+19.	Delivery network that caches content near users.
+A. DNS
+B. CDN ✅
+C. BIOS
+D. SMTP
+20.	Protective system that filters incoming and outgoing traffic.
+A. Firewall ✅
+B. Cache
+C. Cookie
+D. Kernel Panic
+21.	A cyber attack that tricks users into revealing credentials.
+A. Fragmentation
+B. Phishing ✅
+C. Defragmentation
+D. Virtualization
+22.	Technique where attackers demand money for locked data.
+A. Ransomware ✅
+B. Patching
+C. Sandboxing
+D. Rendering
+23.	Software updates that fix bugs and security issues.
+A. Patches ✅
+B. Ports
+C. Queries
+D. Threads
+24.	A connected physical or virtual endpoint on a network.
+A. Node ✅
+B. Pixel
+C. Syllabus
+D. Pointer
+25.	The measurable transfer capacity of a network link.
+A. Latency
+B. Bandwidth ✅
+C. Brightness
+D. Resolution
 ________________________________________
-TECH – TRUE OR FALSE (30)
-1.	Quantum computers are widely used today. — False ❌ 
-2.	AI can recognize images. — True ✅ 
-3.	Self-driving cars use technology. — True ✅ 
-4.	Drones are unmanned devices. — True ✅ 
-5.	5G is faster than 4G. — True ✅ 
-6.	Wi-Fi stands for Wireless Fidelity. — True ✅ 
-7.	Bluetooth is a type of internet. — False ❌ 
-8.	A laptop is a portable computer. — True ✅ 
-9.	A desktop computer is not portable. — True ✅ 
-10.	Malware is harmful software. — True ✅ 
-11.	A virus is a type of malware. — True ✅ 
-12.	Spyware steals information. — True ✅ 
-13.	Phishing is a cyber attack. — True ✅ 
-14.	Cloud computing uses physical storage only. — False ❌ 
-15.	Data science involves analyzing data. — True ✅ 
-16.	Programming languages include Python. — True ✅ 
-17.	JavaScript is used for web development. — True ✅ 
-18.	Operating systems manage hardware. — True ✅ 
-19.	A GPU processes graphics. — True ✅ 
-20.	A CPU handles general processing. — True ✅ 
-21.	SSD is faster than HDD. — True ✅ 
-22.	USB-C is a type of connector. — True ✅ 
-23.	QR codes store data visually. — True ✅ 
-24.	Virtual reality is a simulation technology. — True ✅ 
-25.	Augmented reality adds digital elements. — True ✅ 
-26.	Robots can perform tasks automatically. — True ✅ 
-27.	AI always thinks like humans. — False ❌ 
-28.	The internet is controlled by one country. — False ❌ 
-29.	Software updates improve performance. — True ✅ 
-30.	Technology is always digital. — False ❌
-
+TECH - GUESS THE WORD (30 QUESTIONS)
+1.	Delay between sending data and receiving a response.
+A. Throughput
+B. Latency ✅
+C. Uptime
+D. Redundancy
+2.	Number of bits transferred per second over a network.
+A. Bitrate ✅
+B. Framerate
+C. Pixel Rate
+D. Refresh Rate
+3.	Method for scaling software using independent small services.
+A. Monolith
+B. Microservices ✅
+C. Spreadsheet
+D. Firmware
+4.	Model where resources are rented on demand via cloud.
+A. On-Prem Only
+B. Cloud Computing ✅
+C. Tape Backup
+D. Manual Hosting
+5.	Cloud model offering virtual servers, storage, and networks.
+A. SaaS
+B. IaaS ✅
+C. DNS
+D. CLI
+6.	Cloud model offering a managed app development platform.
+A. PaaS ✅
+B. BIOS
+C. LAN
+D. GUI
+7.	Cloud model delivering ready-to-use software by subscription.
+A. SaaS ✅
+B. FTP
+C. SMTP
+D. SSH
+8.	Technique for running software in isolated containers.
+A. Containerization ✅
+B. Pagination
+C. Rasterization
+D. Encryption
+9.	Popular platform for building and running containers.
+A. Docker ✅
+B. Blender
+C. Excel
+D. Notepad
+10.	System for orchestrating container deployments at scale.
+A. Git
+B. Kubernetes ✅
+C. HTTP
+D. DNS
+11.	Practice combining development and operations workflows.
+A. DevOps ✅
+B. Wireframing
+C. Storyboarding
+D. Benchmark Art
+12.	Process of automatically integrating code changes.
+A. CI ✅
+B. VR
+C. DNS
+D. BIOS
+13.	Process of automatically releasing validated changes.
+A. CD ✅
+B. SQL
+C. SMTP
+D. CSS
+14.	Automated test type that checks one small unit of code.
+A. Unit Test ✅
+B. Pen Test
+C. Smoke Signal
+D. A/B Poster
+15.	Test that verifies components work together.
+A. Integration Test ✅
+B. Color Test
+C. Pixel Test
+D. Font Test
+16.	Monitoring metric that tracks service availability over time.
+A. Uptime ✅
+B. Contrast
+C. Saturation
+D. Kerning
+17.	A record of system events useful for debugging.
+A. Log ✅
+B. Icon
+C. Layer
+D. Sprite
+18.	Technique for tracing an application's runtime behavior.
+A. Observability ✅
+B. Obfuscation
+C. Compression
+D. Pagination
+19.	A dashboard value used to track system health.
+A. KPI ✅
+B. JPEG
+C. SVG
+D. DPI
+20.	A temporary copy of data to speed up access.
+A. Cache ✅
+B. Cookie Jar
+C. Password Vault
+D. Heap Dump
+21.	Database type that stores data in rows and tables.
+A. Relational Database ✅
+B. Pixel Database
+C. Audio Database
+D. Theme Database
+22.	Query language used with relational databases.
+A. SQL ✅
+B. CSS
+C. YAML
+D. SVG
+23.	Database style using flexible document-like records.
+A. NoSQL ✅
+B. ASCII
+C. HDMI
+D. SATA
+24.	Technique that improves query speed by organizing lookup paths.
+A. Indexing ✅
+B. Rasterizing
+C. Streaming
+D. Hydrating
+25.	Property ensuring transaction changes are all-or-nothing.
+A. Atomicity ✅
+B. Aesthetics
+C. Accessibility
+D. Availability Zone
+26.	Process of copying data to another location for recovery.
+A. Replication ✅
+B. Compilation
+C. Decoration
+D. Translation
+27.	Concept of distributing requests across multiple servers.
+A. Load Balancing ✅
+B. Link Coloring
+C. Text Wrapping
+D. Image Sharpening
+28.	Security process that verifies software identity and integrity.
+A. Code Signing ✅
+B. Code Coloring
+C. Code Folding
+D. Code Snipping
+29.	A secret value used to access protected APIs.
+A. API Key ✅
+B. Alt Text
+C. Pixel Key
+D. Theme Token
+30.	A temporary signed credential used for authenticated sessions.
+A. Access Token ✅
+B. Audio Track
+C. Render Layer
+D. Transfer Cable
